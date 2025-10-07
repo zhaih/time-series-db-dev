@@ -209,6 +209,18 @@ dependencies {
     implementation "${opensearch_group}.plugin:store-subdirectory:${opensearch_version}"
 }
 
+configurations.all {
+    resolutionStrategy {
+        // Cache store-subdirectory SNAPSHOT for 1 week (until Oct 14 release)
+        cacheChangingModulesFor 7, 'days'
+        // Dynamic version resolution
+        cacheDynamicVersionsFor 10, 'minutes'
+
+        // Force consistent version for store-subdirectory to avoid SHA mismatches
+        force "org.opensearch.plugin:store-subdirectory:${opensearch_version}"
+    }
+}
+
 String javaccGrammarPath = 'src/main/java/org/opensearch/tsdb/lang/m3/m3ql/parser'
 String javaccOutputPath = 'src/main/java/org/opensearch/tsdb/lang/m3/m3ql/parser/generated'
 
