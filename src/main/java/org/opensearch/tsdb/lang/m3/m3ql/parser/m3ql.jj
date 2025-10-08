@@ -231,6 +231,7 @@ void AliasArgument(M3ASTNode parentNode) :
         )
     )*
     (t = <ALIAS_COMMENT> { /* Consume but ignore comments in alias */ })*
+    (t = <ALIAS_SPACE> { /* Consume but ignore trailing spaces when switching modes */ })*
     {
         token_source.SwitchTo(DEFAULT);
         String result = aliasText.toString().trim();

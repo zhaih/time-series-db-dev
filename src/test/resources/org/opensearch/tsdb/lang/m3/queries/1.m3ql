@@ -4,6 +4,6 @@ fetch city_name:"San Francisco" host:{"host1", "host2"}
   | sum merchantID  # comment in the middle
   | transformNull
   | moving 1m sum
-  | alias "my     # alias"
+  | alias "my     # alias" # comment after alias with spaces and #
   | moving 3h sum  # function after alias, to validate parser mode transition
 # comment at the end

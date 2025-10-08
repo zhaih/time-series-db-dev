@@ -1,0 +1,38 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ */
+package org.opensearch.tsdb.lang.m3.common;
+
+/**
+ * Utility class for common operations in the M3QL plugin.
+ */
+public class Utils {
+
+    private static final char DOUBLE_QUOTE = '"';
+
+    /**
+     * Private constructor to prevent instantiation.
+     */
+    private Utils() {
+        // Prevent instantiation
+    }
+
+    /**
+     * Strips surrounding double quotes from the input string. Non-recursive, does a single layer of un-nesting.
+     * @param input string to strip quotes from
+     * @return the input string without surrounding double quotes, or the original string if it does not start and end with double quotes
+     */
+    public static String stripDoubleQuotes(String input) {
+        if (input == null || input.length() < 2) {
+            return input;
+        }
+        if (input.charAt(0) == DOUBLE_QUOTE && input.charAt(input.length() - 1) == DOUBLE_QUOTE) {
+            return input.substring(1, input.length() - 1);
+        }
+        return input;
+    }
+}

@@ -21,3 +21,5 @@ ROOT
             FUNCTION(fetch)
               TAG_KEY(name)
                 VALUE(d)
+    FUNCTION(alias)
+      VALUE(three word alias)

@@ -26,9 +26,9 @@ import java.util.Set;
  */
 public class M3QLExpressionPrinter extends M3ASTVisitor<String> {
     private static final Set<String> FUNCTIONS_WITH_PIPELINE_ARG = Set.of(
-        Constants.FunctionNames.AS_PERCENT,
-        Constants.FunctionNames.DIFF,
-        Constants.FunctionNames.DIVIDE_SERIES
+        Constants.Functions.Binary.AS_PERCENT,
+        Constants.Functions.Binary.DIFF,
+        Constants.Functions.Binary.DIVIDE_SERIES
     );
     private static final String SPACE = " ";
     private static final String PIPE = "|";

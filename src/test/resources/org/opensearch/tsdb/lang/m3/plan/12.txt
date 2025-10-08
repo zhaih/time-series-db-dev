@@ -1,0 +1,4 @@
+AS_PERCENT
+  REMOVE_EMPTY
+    FETCH({name=[a]}, !{})
+  FETCH({name=[b]}, !{})

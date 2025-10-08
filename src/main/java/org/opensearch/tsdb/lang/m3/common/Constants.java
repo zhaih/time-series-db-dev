@@ -20,30 +20,304 @@ public class Constants {
     }
 
     /**
-     * Common function names used in M3QL.
+     * Function names used in M3QL.
      */
-    public static class FunctionNames {
+    public static class Functions {
 
         /**
          * Private constructor to prevent instantiation.
          */
-        private FunctionNames() {
+        private Functions() {
             // Prevent instantiation
         }
 
         /**
-         * asPercent function name.
+         * abs function name.
          */
-        public static final String AS_PERCENT = "asPercent";
+        public static final String ABS = "abs";
 
         /**
-         * diff function name.
+         * absolute function name (alias for abs).
          */
-        public static final String DIFF = "diff";
+        public static final String ABSOLUTE = "absolute";
 
         /**
-         * divideSeries function name.
+         * alias function name.
          */
-        public static final String DIVIDE_SERIES = "divideSeries";
+        public static final String ALIAS = "alias";
+
+        /**
+         * aliasByTags function name.
+         */
+        public static final String ALIAS_BY_TAGS = "aliasByTags";
+
+        /**
+         * fetch function name.
+         */
+        public static final String FETCH = "fetch";
+
+        /**
+         * histogramPercentile function name.
+         */
+        public static final String HISTOGRAM_PERCENTILE = "histogramPercentile";
+
+        /**
+         * keepLastValue function name.
+         */
+        public static final String KEEP_LAST_VALUE = "keepLastValue";
+
+        /**
+         * moving function name.
+         */
+        public static final String MOVING = "moving";
+
+        /**
+         * perSecond function name.
+         */
+        public static final String PER_SECOND = "perSecond";
+
+        /**
+         * removeEmpty function name.
+         */
+        public static final String REMOVE_EMPTY = "removeEmpty";
+
+        /**
+         * sort function name.
+         */
+        public static final String SORT = "sort";
+
+        /**
+         * scale function name.
+         */
+        public static final String SCALE = "scale";
+
+        /**
+         * timeshift function name.
+         */
+        public static final String TIMESHIFT = "timeshift";
+
+        /**
+         * transformNull function name.
+         */
+        public static final String TRANSFORM_NULL = "transformNull";
+
+        /**
+         * Functions used for value comparison.
+         */
+        public static class ValueFilter {
+            /**
+             * Private constructor to prevent instantiation.
+             */
+            private ValueFilter() {
+                // Prevent instantiation
+            }
+
+            /**
+             * eq function name.
+             */
+            public static final String EQ = "eq";
+
+            /**
+             * equals operator.
+             */
+            public static final String EQUALS = "==";
+
+            /**
+             * ge function name.
+             */
+            public static final String GE = "ge";
+
+            /**
+             * greater than or equal operator.
+             */
+            public static final String GREATER_EQUAL = ">=";
+
+            /**
+             * gt function name.
+             */
+            public static final String GT = "gt";
+
+            /**
+             * greater than operator.
+             */
+            public static final String GREATER_THAN = ">";
+
+            /**
+             * le function name.
+             */
+            public static final String LE = "le";
+
+            /**
+             * less than or equal operator.
+             */
+            public static final String LESS_EQUAL = "<=";
+
+            /**
+             * lt function name.
+             */
+            public static final String LT = "lt";
+
+            /**
+             * less than operator.
+             */
+            public static final String LESS_THAN = "<";
+
+            /**
+             * ne function name.
+             */
+            public static final String NE = "ne";
+
+            /**
+             * not equals operator.
+             */
+            public static final String NOT_EQUALS = "!=";
+        }
+
+        /**
+         * Aggregation functions used in M3QL.
+         */
+        public static class Aggregation {
+
+            /**
+             * Private constructor to prevent instantiation.
+             */
+            private Aggregation() {
+                // Prevent instantiation
+            }
+
+            /**
+             * avg aggregation function name.
+             */
+            public static final String AVG = "avg";
+
+            /**
+             * average aggregation function name.
+             */
+            public static final String AVERAGE = "average";
+
+            /**
+             * averageSeries aggregation function name.
+             */
+            public static final String AVERAGE_SERIES = "averageSeries";
+
+            /**
+             * count aggregation function name.
+             */
+            public static final String COUNT = "count";
+
+            /**
+             * min aggregation function name.
+             */
+            public static final String MIN = "min";
+
+            /**
+             * minimum aggregation function name.
+             */
+            public static final String MINIMUM = "minimum";
+
+            /**
+             * minSeries aggregation function name.
+             */
+            public static final String MIN_SERIES = "minSeries";
+
+            /**
+             * max aggregation function name.
+             */
+            public static final String MAX = "max";
+
+            /**
+             * maximum aggregation function name.
+             */
+            public static final String MAXIMUM = "maximum";
+
+            /**
+             * maxSeries aggregation function name.
+             */
+            public static final String MAX_SERIES = "maxSeries";
+
+            /**
+             * multiply aggregation function name.
+             */
+            public static final String MULTIPLY = "multiply";
+
+            /**
+             * multiplySeries aggregation function name.
+             */
+            public static final String MULTIPLY_SERIES = "multiplySeries";
+
+            /**
+             * sum aggregation function name.
+             */
+            public static final String SUM = "sum";
+
+            /**
+             * sumSeries aggregation function name.
+             */
+            public static final String SUM_SERIES = "sumSeries";
+        }
+
+        /**
+         * Binary operation function names used in M3QL.
+         */
+        public static class Binary {
+            /**
+             * Private constructor to prevent instantiation.
+             */
+            private Binary() {
+                // Prevent instantiation
+            }
+
+            /**
+             * asPercent function name.
+             */
+            public static final String AS_PERCENT = "asPercent";
+
+            /**
+             * diff function name.
+             */
+            public static final String DIFF = "diff";
+
+            /**
+             * divideSeries function name.
+             */
+            public static final String DIVIDE_SERIES = "divideSeries";
+        }
+
+        /**
+         * Sort order functions used with {@link #SORT}
+         */
+        public static class Sort {
+            /**
+             * Private constructor to prevent instantiation.
+             */
+            private Sort() {
+                // Prevent instantiation
+            }
+
+            /**
+             * avg function name.
+             */
+            public static final String AVG = "avg";
+
+            /**
+             * current function name.
+             */
+            public static final String CURRENT = "current";
+
+            /**
+             * max function name.
+             */
+            public static final String MAX = "max";
+
+            /**
+             * stddev function name.
+             */
+            public static final String STD_DEV = "stddev";
+
+            /**
+             * sum function name.
+             */
+            public static final String SUM = "sum";
+        }
     }
 }

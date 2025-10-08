@@ -5,4 +5,4 @@ d = fetch name:d;
 
 e = a | asPercent(b); # test chained macros in a single coordinator
 f = c | asPercent(d);
-e | asPercent(f)
+e | asPercent(f) | alias three word alias # test alias by multiple words

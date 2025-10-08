@@ -5,7 +5,7 @@
  * this file be licensed under the Apache-2.0 license or a
  * compatible open source license.
  */
-package org.opensearch.tsdb.lang.m3.m3ql.parser;
+package org.opensearch.tsdb.lang.m3.m3ql.plan;
 
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import org.opensearch.test.OpenSearchTestCase;
@@ -23,13 +23,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
 
-public class M3ParserTests extends OpenSearchTestCase {
+public class M3ASTConverterTests extends OpenSearchTestCase {
 
     private String testCaseName;
     private String query;
     private String expected;
 
-    public M3ParserTests(TestCaseData testData) {
+    public M3ASTConverterTests(TestCaseData testData) {
         this.testCaseName = testData.name;
         this.query = testData.query;
         this.expected = testData.expected;
@@ -38,16 +38,14 @@ public class M3ParserTests extends OpenSearchTestCase {
     @ParametersFactory
     public static Iterable<Object[]> parameters() {
         try {
-            List<Object[]> testCases = new ArrayList<>();
-
-            // Add AST generation test cases
             NavigableMap<String, String> queries = TestUtils.getResourceFilesWithExtension("lang/m3/queries", ".m3ql");
-            NavigableMap<String, String> expectedResults = TestUtils.getResourceFilesWithExtension("lang/m3/ast", ".txt");
+            NavigableMap<String, String> expectedResults = TestUtils.getResourceFilesWithExtension("lang/m3/plan", ".txt");
 
             if (queries.size() != expectedResults.size()) {
                 throw new IllegalStateException("Number of query files does not match result files");
             }
 
+            List<Object[]> testCases = new ArrayList<>();
             Iterator<String> queryKeys = queries.keySet().iterator();
             Iterator<String> queryIterator = queries.values().iterator();
             Iterator<String> resultIterator = expectedResults.values().iterator();
@@ -65,11 +63,13 @@ public class M3ParserTests extends OpenSearchTestCase {
         }
     }
 
-    public void testASTGeneration() {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+    public void testBuiltPlan() {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); M3PlannerContext context = M3PlannerContext.create()) {
             PrintStream ps = new PrintStream(baos, true, StandardCharsets.UTF_8);
-            M3TestUtils.printAST(M3QLParser.parse(query, true), 0, ps);
-            assertEquals("AST does not match for test case: " + testCaseName, expected, baos.toString(StandardCharsets.UTF_8));
+
+            M3ASTConverter converter = new M3ASTConverter(context);
+            M3TestUtils.printPlan(converter.buildPlan(M3QLParser.parse(query, true)), 0, ps);
+            assertEquals("Explain plan does not match for test case: " + testCaseName, expected, baos.toString(StandardCharsets.UTF_8));
         } catch (Exception e) {
             fail("Failed to parse query for test case " + testCaseName + ": " + query + " with error: " + e.getMessage());
         }

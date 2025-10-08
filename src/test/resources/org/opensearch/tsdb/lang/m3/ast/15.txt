@@ -1,0 +1,27 @@
+ROOT
+  PIPELINE
+    FUNCTION(fetch)
+      TAG_KEY(name)
+        VALUE(metric1)
+    FUNCTION(sum)
+    FUNCTION(asPercent)
+      GROUP
+        FUNCTION(fetch)
+          TAG_KEY(name)
+            VALUE(metric2)
+        FUNCTION(sum)
+        FUNCTION(asPercent)
+          GROUP
+            FUNCTION(fetch)
+              TAG_KEY(name)
+                VALUE(metric3)
+        FUNCTION(avg)
+        GROUP
+          FUNCTION(fetch)
+            TAG_KEY(name)
+              VALUE(metric4)
+          FUNCTION(sum)
+        FUNCTION(avg)
+    FUNCTION(moving)
+      VALUE(5m)
+      VALUE(min)
