@@ -205,7 +205,7 @@ configurations {
 }
 
 dependencies {
-    javacc 'net.java.dev.javacc:javacc:7.0.12'
+    javacc 'net.java.dev.javacc:javacc:7.0.13'
     implementation "${opensearch_group}.plugin:store-subdirectory:${opensearch_version}"
 }
 
