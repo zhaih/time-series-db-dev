@@ -126,7 +126,7 @@ public class MetricsDirectoryReaderReferenceManager extends ReferenceManager<Ope
                 creatNewMetricsDirectoryReader(
                     liveSeriesIndexReaderManager,
                     closedChunkIndexManager,
-                        memChunkReader,
+                    memChunkReader,
                     this.current.getVersion()
                 ),
                 shardId

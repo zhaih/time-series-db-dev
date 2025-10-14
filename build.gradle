@@ -207,6 +207,12 @@ configurations {
 dependencies {
     javacc 'net.java.dev.javacc:javacc:7.0.13'
     implementation "${opensearch_group}.plugin:store-subdirectory:${opensearch_version}"
+
+    // Jackson dependencies for YAML and JSON processing in test framework
+    testImplementation 'com.fasterxml.jackson.core:jackson-core:2.18.2'
+    testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+    testImplementation 'com.fasterxml.jackson.core:jackson-annotations:2.18.2'
+    testImplementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.2'
 }
 
 configurations.all {
