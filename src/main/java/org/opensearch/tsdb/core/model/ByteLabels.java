@@ -68,7 +68,9 @@ public class ByteLabels implements Labels {
      */
     public static ByteLabels fromStrings(String... labels) {
         if (labels.length % 2 != 0) {
-            throw new IllegalArgumentException("Labels must be in pairs");
+            throw new IllegalArgumentException(
+                "Labels must be in pairs (key-value). Received " + labels.length + " labels: " + Arrays.toString(labels)
+            );
         }
 
         TreeMap<String, String> sorted = TREE_MAP_CACHE.get();
