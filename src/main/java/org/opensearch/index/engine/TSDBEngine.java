@@ -30,6 +30,7 @@ import org.opensearch.index.mapper.Uid;
 import org.opensearch.index.seqno.LocalCheckpointTracker;
 import org.opensearch.index.seqno.SeqNoStats;
 import org.opensearch.index.seqno.SequenceNumbers;
+import org.opensearch.index.store.Store;
 import org.opensearch.index.translog.InternalTranslogManager;
 import org.opensearch.index.translog.Translog;
 import org.opensearch.index.translog.TranslogManager;
@@ -1033,6 +1034,10 @@ public class TSDBEngine extends Engine {
         return metadataStore;
     }
 
+    private Store getStore() {
+        return store;
+    }
+
     /**
      * IndexCommit implementation for TSDBEngine that aggregates snapshots from all individual indexes.
      *
@@ -1134,15 +1139,15 @@ public class TSDBEngine extends Engine {
                 Map<String, String> userData = new HashMap<>(lastCommittedSegmentInfos.getUserData());
                 userData.put(key, value);
                 lastCommittedSegmentInfos.setUserData(userData, false);
-                lastCommittedSegmentInfos.commit(store.directory());
-                store.directory().sync(lastCommittedSegmentInfos.files(true));
-                store.directory().syncMetaData();
+                lastCommittedSegmentInfos.commit(getStore().directory());
+                getStore().directory().sync(lastCommittedSegmentInfos.files(true));
+                getStore().directory().syncMetaData();
             } finally {
                 segmentInfosLock.unlock();
             }
         }
 
-        /**
+        /*
          * {@inheritDoc}
          */
         @Override
