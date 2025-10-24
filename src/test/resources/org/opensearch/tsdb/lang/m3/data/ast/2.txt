@@ -4,9 +4,9 @@ ROOT
       GROUP
         FUNCTION(fetch)
           TAG_KEY(dc)
-            VALUE(sfo*)
+            TAG_VALUE(sfo*)
           TAG_KEY(uuid)
-            ARGS([uuid-1, uuid-2, "uuid-3"])
+            TAG_ARGS([uuid-1, uuid-2, uuid-3])
         FUNCTION(sum)
           VALUE(dc)
         FUNCTION(transformNull)
@@ -18,9 +18,9 @@ ROOT
         GROUP
           FUNCTION(fetch)
             TAG_KEY(dc)
-              VALUE(sjc*)
+              TAG_VALUE(sjc*)
             TAG_KEY(uuid)
-              ARGS([uuid-1, uuid-2, "uuid-3"])
+              TAG_ARGS([uuid-1, uuid-2, uuid-3])
           FUNCTION(sum)
             VALUE(dc)
           FUNCTION(transformNull)

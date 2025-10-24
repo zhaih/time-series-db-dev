@@ -8,7 +8,7 @@
 package org.opensearch.tsdb.lang.m3.m3ql.parser;
 
 import org.opensearch.tsdb.lang.m3.common.Constants;
-import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.ArgsNode;
+import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagArgsNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.FunctionNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.GroupNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.M3ASTNode;
@@ -16,6 +16,7 @@ import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.MacroNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.PipelineNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.RootNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagKeyNode;
+import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagValueNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.ValueNode;
 
 import java.util.List;
@@ -87,6 +88,18 @@ public class M3QLExpressionPrinter extends M3ASTVisitor<String> {
     }
 
     @Override
+    public String visit(TagValueNode tagValueNode) {
+        if (tagValueNode.getValue().contains(SPACE)) {
+            expressionBuilder.append("\"");
+            expressionBuilder.append(tagValueNode.getValue());
+            expressionBuilder.append("\"");
+            return null;
+        }
+        expressionBuilder.append(tagValueNode.getValue());
+        return null;
+    }
+
+    @Override
     public String visit(MacroNode macroNode) {
         expressionBuilder.append(macroNode.getMacroName()).append(" = ");
         macroNode.getPipeline().accept(this);
@@ -114,12 +127,12 @@ public class M3QLExpressionPrinter extends M3ASTVisitor<String> {
     }
 
     @Override
-    public String visit(ArgsNode argsNode) {
+    public String visit(TagArgsNode argsNode) {
         expressionBuilder.append(OPEN_BRACE);
         List<String> args = argsNode.getArgs();
         for (int i = 0; i < args.size() - 1; i++) {
             expressionBuilder.append(args.get(i));
-            expressionBuilder.append(COMMA).append(SPACE);
+            expressionBuilder.append(COMMA);
         }
         expressionBuilder.append(args.getLast());
         expressionBuilder.append(CLOSE_BRACE);

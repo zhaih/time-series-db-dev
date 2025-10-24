@@ -4,22 +4,22 @@ ROOT
       PIPELINE
         FUNCTION(fetch)
           TAG_KEY(name)
-            VALUE(a)
+            TAG_VALUE(a)
       FUNCTION(asPercent)
         PIPELINE
           FUNCTION(fetch)
             TAG_KEY(name)
-              VALUE(b)
+              TAG_VALUE(b)
     FUNCTION(asPercent)
       PIPELINE
         PIPELINE
           FUNCTION(fetch)
             TAG_KEY(name)
-              VALUE(c)
+              TAG_VALUE(c)
         FUNCTION(asPercent)
           PIPELINE
             FUNCTION(fetch)
               TAG_KEY(name)
-                VALUE(d)
+                TAG_VALUE(d)
     FUNCTION(alias)
       VALUE(three word alias)

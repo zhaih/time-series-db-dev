@@ -1,6 +1,6 @@
 # test comments, quoted tag values, and args
 # comment at the start
-fetch city_name:"San Francisco" host:{"host1", "host2"}
+fetch city_name:"San Francisco" host:{"host1","host2"}
   | sum merchantID  # comment in the middle
   | transformNull
   | moving 1m sum

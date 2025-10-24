@@ -1,3 +1,3 @@
-ALIAS(queries)
+ALIAS(total_count)
   AGG(SUM, groupBy=[])
-    FETCH({name=[queries]}, !{})
+    FETCH({name=[controller_commit_response_count, controller_failed_response_count]}, !{region=[us, eu]})

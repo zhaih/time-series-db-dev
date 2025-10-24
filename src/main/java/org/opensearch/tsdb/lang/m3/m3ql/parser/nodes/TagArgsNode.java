@@ -18,12 +18,12 @@ import java.util.Locale;
  *
  * <pre>fetch dc:{dca*,phx*}`</pre>
  */
-public class ArgsNode extends M3ASTNode {
+public class TagArgsNode extends M3ASTNode {
 
     /**
-     * Constructor for ArgsNode.
+     * Constructor for TagArgsNode.
      */
-    public ArgsNode() {
+    public TagArgsNode() {
 
     }
 
@@ -44,7 +44,7 @@ public class ArgsNode extends M3ASTNode {
 
     @Override
     public String getExplainName() {
-        return String.format(Locale.ROOT, "ARGS(%s)", args);
+        return String.format(Locale.ROOT, "TAG_ARGS(%s)", args);
     }
 
     /**

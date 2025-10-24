@@ -16,7 +16,7 @@ public class M3ExpressionPrinterTests extends OpenSearchTestCase {
     public void testRoundTrip() {
         String[] queries = {
             "fetch city_id:1 | transformNull | moving 1m sum | sum region | avg",
-            "fetch city_name:\"San Francisco\" host:{\"host1\", \"host2\"} | sum merchantID | transformNull | moving 1m sum",
+            "fetch city_name:\"San Francisco\" host:{host1,host2} | sum merchantID | transformNull | moving 1m sum",
             "a = fetch city_id:1 | transformNull; b = fetch city_id:2 | transformNull; a | asPercent(b)" };
 
         for (String query : queries) {

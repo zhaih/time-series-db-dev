@@ -7,9 +7,10 @@
  */
 package org.opensearch.tsdb.lang.m3.m3ql.plan.nodes;
 
-import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.ArgsNode;
+import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagArgsNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.FunctionNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagKeyNode;
+import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagValueNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.ValueNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.visitor.M3PlanVisitor;
 
@@ -61,7 +62,7 @@ public class FetchPlanNodeTests extends BasePlanNodeTests {
         functionNode.setFunctionName("fetch");
         TagKeyNode tagKey = new TagKeyNode();
         tagKey.setKeyName("host");
-        tagKey.addChildNode(new ValueNode("server1"));
+        tagKey.addChildNode(new TagValueNode("server1"));
         functionNode.addChildNode(tagKey);
 
         FetchPlanNode node = FetchPlanNode.of(functionNode);
@@ -76,7 +77,7 @@ public class FetchPlanNodeTests extends BasePlanNodeTests {
         functionNode.setFunctionName("fetch");
         TagKeyNode tagKey = new TagKeyNode();
         tagKey.setKeyName("service");
-        ArgsNode args = new ArgsNode();
+        TagArgsNode args = new TagArgsNode();
         args.addArg("web");
         args.addArg("api");
         tagKey.addChildNode(args);
@@ -93,7 +94,7 @@ public class FetchPlanNodeTests extends BasePlanNodeTests {
         TagKeyNode tagKey = new TagKeyNode();
         tagKey.setKeyName("env");
         tagKey.setInverted(true);
-        tagKey.addChildNode(new ValueNode("test"));
+        tagKey.addChildNode(new TagValueNode("test"));
         functionNode.addChildNode(tagKey);
 
         FetchPlanNode node = FetchPlanNode.of(functionNode);

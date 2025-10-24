@@ -4,11 +4,11 @@ ROOT
       GROUP
         FUNCTION(fetch)
           TAG_KEY(name)
-            VALUE(queries)
+            TAG_VALUE(queries)
         FUNCTION(sum)
     PIPELINE
       GROUP
         FUNCTION(fetch)
           TAG_KEY(name)
-            VALUE(exceptions)
+            TAG_VALUE(exceptions)
         FUNCTION(sum)

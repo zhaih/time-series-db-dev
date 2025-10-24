@@ -8,7 +8,7 @@
 package org.opensearch.tsdb.lang.m3.m3ql.parser.transform;
 
 import org.opensearch.tsdb.lang.m3.m3ql.parser.M3ASTVisitor;
-import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.ArgsNode;
+import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagArgsNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.FunctionNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.GroupNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.M3ASTNode;
@@ -16,6 +16,7 @@ import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.MacroNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.PipelineNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.RootNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagKeyNode;
+import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagValueNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.ValueNode;
 
 /**
@@ -53,6 +54,13 @@ public class ASTCloningVisitor extends M3ASTVisitor<M3ASTNode> {
     }
 
     @Override
+    public M3ASTNode visit(TagValueNode tagValueNode) {
+        TagValueNode cloned = new TagValueNode(tagValueNode.getValue());
+        cloneChildren(tagValueNode, cloned);
+        return cloned;
+    }
+
+    @Override
     public M3ASTNode visit(MacroNode macroNode) {
         MacroNode cloned = new MacroNode(macroNode.getMacroName());
         cloneChildren(macroNode, cloned);
@@ -74,8 +82,8 @@ public class ASTCloningVisitor extends M3ASTVisitor<M3ASTNode> {
     }
 
     @Override
-    public M3ASTNode visit(ArgsNode argsNode) {
-        ArgsNode cloned = new ArgsNode();
+    public M3ASTNode visit(TagArgsNode argsNode) {
+        TagArgsNode cloned = new TagArgsNode();
         for (String arg : argsNode.getArgs()) {
             cloned.addArg(arg);
         }

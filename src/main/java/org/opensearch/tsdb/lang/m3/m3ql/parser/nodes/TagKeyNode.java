@@ -63,6 +63,9 @@ public class TagKeyNode extends M3ASTNode {
 
     @Override
     public String getExplainName() {
+        if (inverted) {
+            return String.format(Locale.ROOT, "TAG_KEY(%s, inverted=true)", keyName);
+        }
         return String.format(Locale.ROOT, "TAG_KEY(%s)", keyName);
     }
 }

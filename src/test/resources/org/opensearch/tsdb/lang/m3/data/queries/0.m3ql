@@ -1,5 +1,5 @@
 # test simple query with mixed wildcard and literal tag filter
-fetch name:service.errors region:{us-*, ca}
+fetch name:service.errors region:{us-*,ca}
   | transformNull
   | moving 1m sum
   | sum region

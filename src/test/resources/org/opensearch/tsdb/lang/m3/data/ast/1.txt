@@ -2,9 +2,9 @@ ROOT
   PIPELINE
     FUNCTION(fetch)
       TAG_KEY(city_name)
-        VALUE("San Francisco")
+        TAG_VALUE(San Francisco)
       TAG_KEY(host)
-        ARGS(["host1", "host2"])
+        TAG_ARGS([host1, host2])
     FUNCTION(sum)
       VALUE(merchantID)
     FUNCTION(transformNull)

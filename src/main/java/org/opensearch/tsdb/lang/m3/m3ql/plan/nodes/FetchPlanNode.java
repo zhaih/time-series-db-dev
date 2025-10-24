@@ -8,11 +8,11 @@
 package org.opensearch.tsdb.lang.m3.m3ql.plan.nodes;
 
 import org.opensearch.tsdb.lang.m3.common.Utils;
-import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.ArgsNode;
+import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagArgsNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.FunctionNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.M3ASTNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagKeyNode;
-import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.ValueNode;
+import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagValueNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.M3PlannerContext;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.visitor.M3PlanVisitor;
 
@@ -110,16 +110,16 @@ public class FetchPlanNode extends M3PlanNode {
             throw new IllegalArgumentException("TagKeyNode can only have one child for filter values");
         }
         M3ASTNode child = tagKey.getChildren().getFirst();
-        if (child instanceof ValueNode valueNode) {
-            return Collections.singletonList(Utils.stripDoubleQuotes(valueNode.getValue())); // Single value case
+        if (child instanceof TagValueNode tagValueNode) {
+            return Collections.singletonList(Utils.stripDoubleQuotes(tagValueNode.getValue())); // Single value case
         }
-        if (child instanceof ArgsNode argsNode) {
+        if (child instanceof TagArgsNode argsNode) {
             List<String> sanitizedArgs = new ArrayList<>();
             for (String arg : argsNode.getArgs()) {
                 sanitizedArgs.add(Utils.stripDoubleQuotes(arg));
             }
             return sanitizedArgs;
         }
-        throw new IllegalArgumentException("Invalid filter value for label");
+        throw new IllegalArgumentException("Invalid filter value for label, got " + child.getClass().getSimpleName());
     }
 }

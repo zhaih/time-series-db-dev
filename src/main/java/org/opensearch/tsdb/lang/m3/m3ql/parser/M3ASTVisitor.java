@@ -7,13 +7,14 @@
  */
 package org.opensearch.tsdb.lang.m3.m3ql.parser;
 
-import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.ArgsNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.FunctionNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.GroupNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.MacroNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.PipelineNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.RootNode;
+import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagArgsNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagKeyNode;
+import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.TagValueNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.ValueNode;
 
 /**
@@ -49,6 +50,13 @@ public abstract class M3ASTVisitor<T> {
     public abstract T visit(TagKeyNode tagKeyNode);
 
     /**
+     * Visit a tag value node.
+     * @param tagValueNode the tag value node to visit
+     * @return the result of visiting the tag value node
+     */
+    public abstract T visit(TagValueNode tagValueNode);
+
+    /**
      * Visit a macro node.
      * @param macroNode the macro node to visit
      * @return the result of visiting the macro node
@@ -74,7 +82,7 @@ public abstract class M3ASTVisitor<T> {
      * @param argListNode the arguments list node to visit
      * @return the result of visiting the arguments list node
      */
-    public abstract T visit(ArgsNode argListNode);
+    public abstract T visit(TagArgsNode argListNode);
 
     /**
      * Visit a value node.
