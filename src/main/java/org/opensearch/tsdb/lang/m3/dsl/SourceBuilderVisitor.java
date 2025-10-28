@@ -54,6 +54,7 @@ import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.TransformNullPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.UnionPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.ValueFilterPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.visitor.M3PlanVisitor;
+import org.opensearch.tsdb.lang.m3.stage.ValueFilterStage;
 import org.opensearch.tsdb.query.aggregator.TimeSeriesCoordinatorAggregationBuilder;
 import org.opensearch.tsdb.query.aggregator.TimeSeriesCoordinatorAggregator;
 import org.opensearch.tsdb.query.aggregator.TimeSeriesUnfoldAggregationBuilder;
@@ -392,7 +393,12 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
 
     @Override
     public ComponentHolder visit(ValueFilterPlanNode planNode) {
-        return super.visit(planNode);
+        validateChildCountExact(planNode, 1);
+
+        ValueFilterStage valueFilterStage = new ValueFilterStage(planNode.getFilter(), planNode.getTargetValue());
+        stageStack.add(valueFilterStage);
+
+        return planNode.getChildren().getFirst().accept(this);
     }
 
     private static void validateChildCountExact(M3PlanNode node, int expected) {

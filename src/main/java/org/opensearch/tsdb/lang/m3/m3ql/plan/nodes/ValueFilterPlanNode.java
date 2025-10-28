@@ -7,7 +7,6 @@
  */
 package org.opensearch.tsdb.lang.m3.m3ql.plan.nodes;
 
-import org.opensearch.tsdb.lang.m3.common.Constants;
 import org.opensearch.tsdb.lang.m3.common.ValueFilterType;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.FunctionNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.M3ASTNode;
@@ -71,7 +70,7 @@ public class ValueFilterPlanNode extends M3PlanNode {
      * @throws IllegalArgumentException if the function node is invalid
      */
     public static ValueFilterPlanNode of(FunctionNode functionNode) {
-        ValueFilterType filter = getFilterFromFunctionName(functionNode.getFunctionName());
+        ValueFilterType filter = ValueFilterType.fromString(functionNode.getFunctionName());
 
         String valueStr = getValueString(functionNode);
         try {
@@ -97,17 +96,5 @@ public class ValueFilterPlanNode extends M3PlanNode {
         }
 
         return valueNode.getValue();
-    }
-
-    private static ValueFilterType getFilterFromFunctionName(String functionName) {
-        return switch (functionName) {
-            case Constants.Functions.ValueFilter.EQ, Constants.Functions.ValueFilter.EQUALS -> ValueFilterType.EQ;
-            case Constants.Functions.ValueFilter.NE, Constants.Functions.ValueFilter.NOT_EQUALS -> ValueFilterType.NEQ;
-            case Constants.Functions.ValueFilter.GT, Constants.Functions.ValueFilter.GREATER_THAN -> ValueFilterType.GT;
-            case Constants.Functions.ValueFilter.GE, Constants.Functions.ValueFilter.GREATER_EQUAL -> ValueFilterType.GTE;
-            case Constants.Functions.ValueFilter.LT, Constants.Functions.ValueFilter.LESS_THAN -> ValueFilterType.LT;
-            case Constants.Functions.ValueFilter.LE, Constants.Functions.ValueFilter.LESS_EQUAL -> ValueFilterType.LTE;
-            default -> throw new IllegalArgumentException("Unknown filter function: " + functionName);
-        };
     }
 }

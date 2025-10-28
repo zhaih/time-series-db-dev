@@ -55,13 +55,13 @@ public class ValueFilterPlanNodeTests extends BasePlanNodeTests {
         notEqualsNode.setFunctionName("ne");
         notEqualsNode.addChildNode(new ValueNode("5"));
         ValueFilterPlanNode notEqualsResult = ValueFilterPlanNode.of(notEqualsNode);
-        assertEquals(ValueFilterType.NEQ, notEqualsResult.getFilter());
+        assertEquals(ValueFilterType.NE, notEqualsResult.getFilter());
 
         FunctionNode notEqualsNode2 = new FunctionNode();
         notEqualsNode2.setFunctionName("!=");
         notEqualsNode2.addChildNode(new ValueNode("5"));
         ValueFilterPlanNode notEqualsResult2 = ValueFilterPlanNode.of(notEqualsNode2);
-        assertEquals(ValueFilterType.NEQ, notEqualsResult2.getFilter());
+        assertEquals(ValueFilterType.NE, notEqualsResult2.getFilter());
 
         // greater and alias
         FunctionNode greaterThanNode = new FunctionNode();
@@ -81,13 +81,13 @@ public class ValueFilterPlanNodeTests extends BasePlanNodeTests {
         greaterEqualNode.setFunctionName("ge");
         greaterEqualNode.addChildNode(new ValueNode("5"));
         ValueFilterPlanNode greaterEqualResult = ValueFilterPlanNode.of(greaterEqualNode);
-        assertEquals(ValueFilterType.GTE, greaterEqualResult.getFilter());
+        assertEquals(ValueFilterType.GE, greaterEqualResult.getFilter());
 
         FunctionNode greaterEqualNode2 = new FunctionNode();
         greaterEqualNode2.setFunctionName(">=");
         greaterEqualNode2.addChildNode(new ValueNode("5"));
         ValueFilterPlanNode greaterEqualResult2 = ValueFilterPlanNode.of(greaterEqualNode2);
-        assertEquals(ValueFilterType.GTE, greaterEqualResult2.getFilter());
+        assertEquals(ValueFilterType.GE, greaterEqualResult2.getFilter());
 
         // less and alias
         FunctionNode lessThanNode = new FunctionNode();
@@ -107,13 +107,13 @@ public class ValueFilterPlanNodeTests extends BasePlanNodeTests {
         lessEqualNode.setFunctionName("le");
         lessEqualNode.addChildNode(new ValueNode("5"));
         ValueFilterPlanNode lessEqualResult = ValueFilterPlanNode.of(lessEqualNode);
-        assertEquals(ValueFilterType.LTE, lessEqualResult.getFilter());
+        assertEquals(ValueFilterType.LE, lessEqualResult.getFilter());
 
         FunctionNode lessEqualNode2 = new FunctionNode();
         lessEqualNode2.setFunctionName("<=");
         lessEqualNode2.addChildNode(new ValueNode("5"));
         ValueFilterPlanNode lessEqualResult2 = ValueFilterPlanNode.of(lessEqualNode2);
-        assertEquals(ValueFilterType.LTE, lessEqualResult2.getFilter());
+        assertEquals(ValueFilterType.LE, lessEqualResult2.getFilter());
     }
 
     public void testValueFilterPlanNodeFactoryMethodThrowsOnNoArguments() {

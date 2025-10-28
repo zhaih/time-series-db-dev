@@ -20,7 +20,7 @@ public enum ValueFilterType {
     /**
      * Not equal to
      */
-    NEQ,
+    NE,
 
     /**
      * Greater than
@@ -30,7 +30,7 @@ public enum ValueFilterType {
     /**
      * Greater than or equal to
      */
-    GTE,
+    GE,
 
     /**
      * Less than
@@ -40,5 +40,26 @@ public enum ValueFilterType {
     /**
      * Less than or equal to
      */
-    LTE
+    LE;
+
+    /**
+     * Parse a string into an Operator enum value.
+     *
+     * @param name the string representation (case-sensitive)
+     * @return the corresponding Operator enum value
+     * @throws IllegalArgumentException if the name is not recognized
+     */
+    public static ValueFilterType fromString(String name) {
+        return switch (name) {
+            case Constants.Functions.ValueFilter.EQ, Constants.Functions.ValueFilter.EQUALS -> ValueFilterType.EQ;
+            case Constants.Functions.ValueFilter.NE, Constants.Functions.ValueFilter.NOT_EQUALS -> ValueFilterType.NE;
+            case Constants.Functions.ValueFilter.GT, Constants.Functions.ValueFilter.GREATER_THAN -> ValueFilterType.GT;
+            case Constants.Functions.ValueFilter.GE, Constants.Functions.ValueFilter.GREATER_EQUAL -> ValueFilterType.GE;
+            case Constants.Functions.ValueFilter.LT, Constants.Functions.ValueFilter.LESS_THAN -> ValueFilterType.LT;
+            case Constants.Functions.ValueFilter.LE, Constants.Functions.ValueFilter.LESS_EQUAL -> ValueFilterType.LE;
+            default -> throw new IllegalArgumentException(
+                "Unknown filter function: " + name + ". Supported: eq/==, ne/!=, ge/>=, gt/>, le/<=, lt/<"
+            );
+        };
+    }
 }

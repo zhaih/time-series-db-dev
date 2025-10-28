@@ -18,6 +18,7 @@ import org.opensearch.tsdb.core.model.ByteLabels;
 import org.opensearch.tsdb.core.model.FloatSample;
 import org.opensearch.tsdb.core.model.Labels;
 import org.opensearch.tsdb.core.model.Sample;
+import org.opensearch.tsdb.lang.m3.common.ValueFilterType;
 import org.opensearch.tsdb.query.aggregator.TimeSeries;
 
 import java.io.IOException;
@@ -33,19 +34,19 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
     public void testConstructorWithOperatorAndTargetValue() {
         // Arrange & Act
-        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterStage.Operator.EQ, 10.5);
+        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterType.EQ, 10.5);
 
         // Assert
-        assertEquals(ValueFilterStage.Operator.EQ, filterStage.getOperator());
+        assertEquals(ValueFilterType.EQ, filterStage.getOperator());
         assertEquals(10.5, filterStage.getTargetValue(), 0.001);
-        assertEquals("valueFilter", filterStage.getName());
+        assertEquals(ValueFilterStage.NAME, filterStage.getName());
     }
 
     // ========== Process Method Tests ==========
 
     public void testProcessWithNullInput() {
         // Arrange
-        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterStage.Operator.EQ, 10.0);
+        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterType.EQ, 10.0);
 
         // Act & Assert
         NullPointerException exception = expectThrows(NullPointerException.class, () -> filterStage.process(null));
@@ -54,7 +55,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
     public void testProcessWithEmptyInput() {
         // Arrange
-        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterStage.Operator.EQ, 10.0);
+        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterType.EQ, 10.0);
         List<TimeSeries> input = new ArrayList<>();
 
         // Act
@@ -66,7 +67,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
     public void testProcessEqOperator() {
         // Arrange
-        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterStage.Operator.EQ, 10.0);
+        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterType.EQ, 10.0);
         List<TimeSeries> input = createTestTimeSeries();
 
         // Act
@@ -80,7 +81,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
     public void testProcessNeOperator() {
         // Arrange
-        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterStage.Operator.NE, 10.0);
+        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterType.NE, 10.0);
         List<TimeSeries> input = createTestTimeSeries();
 
         // Act
@@ -95,7 +96,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
     public void testProcessGtOperator() {
         // Arrange
-        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterStage.Operator.GT, 10.0);
+        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterType.GT, 10.0);
         List<TimeSeries> input = createTestTimeSeries();
 
         // Act
@@ -109,7 +110,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
     public void testProcessGeOperator() {
         // Arrange
-        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterStage.Operator.GE, 10.0);
+        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterType.GE, 10.0);
         List<TimeSeries> input = createTestTimeSeries();
 
         // Act
@@ -124,7 +125,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
     public void testProcessLtOperator() {
         // Arrange
-        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterStage.Operator.LT, 10.0);
+        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterType.LT, 10.0);
         List<TimeSeries> input = createTestTimeSeries();
 
         // Act
@@ -138,7 +139,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
     public void testProcessLeOperator() {
         // Arrange
-        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterStage.Operator.LE, 10.0);
+        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterType.LE, 10.0);
         List<TimeSeries> input = createTestTimeSeries();
 
         // Act
@@ -153,7 +154,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
     public void testProcessWithNaNValues() {
         // Arrange
-        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterStage.Operator.EQ, 10.0);
+        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterType.EQ, 10.0);
         List<Sample> samples = Arrays.asList(
             new FloatSample(1000L, 10.0),
             new FloatSample(2000L, Double.NaN),
@@ -174,7 +175,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
     public void testProcessWithNullSamples() {
         // Arrange
-        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterStage.Operator.EQ, 10.0);
+        ValueFilterStage filterStage = new ValueFilterStage(ValueFilterType.EQ, 10.0);
         List<Sample> samples = Arrays.asList(new FloatSample(1000L, 10.0), null, new FloatSample(3000L, 15.0));
         Labels labels = ByteLabels.fromMap(Map.of("label", "test"));
         TimeSeries timeSeries = new TimeSeries(samples, labels, 1000L, 3000L, 1000L, "test");
@@ -189,44 +190,11 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
         assertEquals(10.0, result.get(0).getSamples().get(0).getValue(), 0.001);
     }
 
-    // ========== Operator Enum Tests ==========
-
-    public void testOperatorFromString() {
-        assertEquals(ValueFilterStage.Operator.EQ, ValueFilterStage.Operator.fromString("eq"));
-        assertEquals(ValueFilterStage.Operator.EQ, ValueFilterStage.Operator.fromString("=="));
-        assertEquals(ValueFilterStage.Operator.NE, ValueFilterStage.Operator.fromString("ne"));
-        assertEquals(ValueFilterStage.Operator.NE, ValueFilterStage.Operator.fromString("!="));
-        assertEquals(ValueFilterStage.Operator.GT, ValueFilterStage.Operator.fromString("gt"));
-        assertEquals(ValueFilterStage.Operator.GT, ValueFilterStage.Operator.fromString(">"));
-        assertEquals(ValueFilterStage.Operator.GE, ValueFilterStage.Operator.fromString("ge"));
-        assertEquals(ValueFilterStage.Operator.GE, ValueFilterStage.Operator.fromString(">="));
-        assertEquals(ValueFilterStage.Operator.LT, ValueFilterStage.Operator.fromString("lt"));
-        assertEquals(ValueFilterStage.Operator.LT, ValueFilterStage.Operator.fromString("<"));
-        assertEquals(ValueFilterStage.Operator.LE, ValueFilterStage.Operator.fromString("le"));
-        assertEquals(ValueFilterStage.Operator.LE, ValueFilterStage.Operator.fromString("<="));
-    }
-
-    public void testOperatorFromStringCaseSensitive() {
-        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> ValueFilterStage.Operator.fromString("EQ"));
-        assertEquals("Unknown operator: EQ. Supported: eq/==, ne/!=, ge/>=, gt/>, le/<=, lt/<", exception.getMessage());
-
-        exception = expectThrows(IllegalArgumentException.class, () -> ValueFilterStage.Operator.fromString("GT"));
-        assertEquals("Unknown operator: GT. Supported: eq/==, ne/!=, ge/>=, gt/>, le/<=, lt/<", exception.getMessage());
-    }
-
-    public void testOperatorFromStringInvalid() {
-        IllegalArgumentException exception = expectThrows(
-            IllegalArgumentException.class,
-            () -> ValueFilterStage.Operator.fromString("invalid")
-        );
-        assertEquals("Unknown operator: invalid. Supported: eq/==, ne/!=, ge/>=, gt/>, le/<=, lt/<", exception.getMessage());
-    }
-
     // ========== Serialization Tests ==========
 
     public void testWriteToAndReadFrom() throws IOException {
         // Arrange
-        ValueFilterStage original = new ValueFilterStage(ValueFilterStage.Operator.GT, 5.0);
+        ValueFilterStage original = new ValueFilterStage(ValueFilterType.GT, 5.0);
         BytesStreamOutput output = new BytesStreamOutput();
 
         // Act
@@ -240,7 +208,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
     }
 
     public void testToXContent() throws IOException {
-        ValueFilterStage stage = new ValueFilterStage(ValueFilterStage.Operator.GE, 10.5);
+        ValueFilterStage stage = new ValueFilterStage(ValueFilterType.GE, 10.5);
         XContentBuilder builder = XContentFactory.jsonBuilder();
 
         builder.startObject();
@@ -264,7 +232,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
         ValueFilterStage filterStage = ValueFilterStage.fromArgs(args);
 
         // Assert
-        assertEquals(ValueFilterStage.Operator.GT, filterStage.getOperator());
+        assertEquals(ValueFilterType.GT, filterStage.getOperator());
         assertEquals(10.5, filterStage.getTargetValue(), 0.001);
     }
 
@@ -276,7 +244,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
         ValueFilterStage filterStage = ValueFilterStage.fromArgs(args);
 
         // Assert
-        assertEquals(ValueFilterStage.Operator.GE, filterStage.getOperator());
+        assertEquals(ValueFilterType.GE, filterStage.getOperator());
         assertEquals(10.5, filterStage.getTargetValue(), 0.001);
     }
 
@@ -350,7 +318,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
         // Act & Assert
         IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> ValueFilterStage.fromArgs(args));
-        assertTrue(exception.getMessage().contains("Unknown operator"));
+        assertTrue(exception.getMessage().contains("Unknown filter function"));
     }
 
     // ========== Helper Methods ==========
@@ -374,15 +342,15 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
      * Test equals method for ValueFilterStage.
      */
     public void testEquals() {
-        ValueFilterStage stage1 = new ValueFilterStage(ValueFilterStage.Operator.GT, 10.5);
-        ValueFilterStage stage2 = new ValueFilterStage(ValueFilterStage.Operator.GT, 10.5);
+        ValueFilterStage stage1 = new ValueFilterStage(ValueFilterType.GT, 10.5);
+        ValueFilterStage stage2 = new ValueFilterStage(ValueFilterType.GT, 10.5);
 
         assertEquals("Equal ValueFilterStages should be equal", stage1, stage2);
 
-        ValueFilterStage stageDiffOp = new ValueFilterStage(ValueFilterStage.Operator.LT, 10.5);
+        ValueFilterStage stageDiffOp = new ValueFilterStage(ValueFilterType.LT, 10.5);
         assertNotEquals("Different operators should not be equal", stage1, stageDiffOp);
 
-        ValueFilterStage stageDiffValue = new ValueFilterStage(ValueFilterStage.Operator.GT, 15.0);
+        ValueFilterStage stageDiffValue = new ValueFilterStage(ValueFilterType.GT, 15.0);
         assertNotEquals("Different target values should not be equal", stage1, stageDiffValue);
 
         assertEquals("Stage should equal itself", stage1, stage1);
@@ -391,7 +359,7 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
         assertNotEquals("Stage should not equal different class", "string", stage1);
 
-        for (ValueFilterStage.Operator op : ValueFilterStage.Operator.values()) {
+        for (ValueFilterType op : ValueFilterType.values()) {
             ValueFilterStage stage3 = new ValueFilterStage(op, 5.0);
             ValueFilterStage stage4 = new ValueFilterStage(op, 5.0);
             assertEquals("Stages with same operator " + op + " should be equal", stage3, stage4);
@@ -405,6 +373,6 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
 
     @Override
     protected ValueFilterStage createTestInstance() {
-        return new ValueFilterStage(randomFrom(ValueFilterStage.Operator.values()), randomDoubleBetween(-1000.0, 1000.0, true));
+        return new ValueFilterStage(randomFrom(ValueFilterType.values()), randomDoubleBetween(-1000.0, 1000.0, true));
     }
 }

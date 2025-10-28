@@ -108,6 +108,14 @@
             "type" : "keepLastValue"
           },
           {
+            "type" : "value_filter",
+            "operator" : "GE",
+            "target_value" : 5.0
+          },
+          {
+            "type" : "count"
+          },
+          {
             "type" : "alias",
             "pattern" : "{{.region}}"
           }

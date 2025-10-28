@@ -12,6 +12,7 @@ import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.tsdb.core.model.Sample;
+import org.opensearch.tsdb.lang.m3.common.ValueFilterType;
 import org.opensearch.tsdb.query.aggregator.TimeSeries;
 import org.opensearch.tsdb.query.stage.PipelineStageAnnotation;
 import org.opensearch.tsdb.query.stage.UnaryPipelineStage;
@@ -51,73 +52,16 @@ import java.util.Map;
  * }</pre>
  *
  */
-@PipelineStageAnnotation(name = "valueFilter")
+@PipelineStageAnnotation(name = ValueFilterStage.NAME)
 public class ValueFilterStage implements UnaryPipelineStage {
     /** The name identifier for this pipeline stage type. */
-    public static final String NAME = "valueFilter";
+    public static final String NAME = "value_filter";
     /** The argument name for operator parameter. */
     public static final String OPERATOR_ARG = "operator";
     /** The argument name for target value parameter. */
-    public static final String TARGET_VALUE_ARG = "targetValue";
+    public static final String TARGET_VALUE_ARG = "target_value";
 
-    /**
-     * Enumeration of supported comparison operators.
-     */
-    public enum Operator {
-        /** Equal to (with floating-point tolerance) */
-        EQ("eq", "=="),
-        /** Not equal to */
-        NE("ne", "!="),
-        /** Greater than or equal to */
-        GE("ge", ">="),
-        /** Greater than */
-        GT("gt", ">"),
-        /** Less than or equal to */
-        LE("le", "<="),
-        /** Less than */
-        LT("lt", "<");
-
-        private final String name;
-        private final String symbol;
-
-        Operator(String name, String symbol) {
-            this.name = name;
-            this.symbol = symbol;
-        }
-
-        /**
-         * Get the string representation of this operator.
-         * @return the name of the operator
-         */
-        public String getName() {
-            return name;
-        }
-
-        /**
-         * Get the symbol representation of this operator.
-         * @return the symbol of the operator
-         */
-        public String getSymbol() {
-            return symbol;
-        }
-
-        /**
-         * Parse a string into an Operator enum value.
-         * @param name the string representation (case sensitive)
-         * @return the corresponding Operator enum value
-         * @throws IllegalArgumentException if the name is not recognized
-         */
-        public static Operator fromString(String name) {
-            for (Operator operator : values()) {
-                if (operator.name.equals(name) || operator.symbol.equals(name)) {
-                    return operator;
-                }
-            }
-            throw new IllegalArgumentException("Unknown operator: " + name + ". Supported: eq/==, ne/!=, ge/>=, gt/>, le/<=, lt/<");
-        }
-    }
-
-    private final Operator operator;
+    private final ValueFilterType operator;
     private final double targetValue;
 
     /**
@@ -126,7 +70,7 @@ public class ValueFilterStage implements UnaryPipelineStage {
      * @param operator the comparison operator to use
      * @param targetValue the target value to compare against
      */
-    public ValueFilterStage(Operator operator, double targetValue) {
+    public ValueFilterStage(ValueFilterType operator, double targetValue) {
         this.operator = operator;
         this.targetValue = targetValue;
     }
@@ -186,7 +130,7 @@ public class ValueFilterStage implements UnaryPipelineStage {
      * Get the comparison operator.
      * @return the operator
      */
-    public Operator getOperator() {
+    public ValueFilterType getOperator() {
         return operator;
     }
 
@@ -200,13 +144,13 @@ public class ValueFilterStage implements UnaryPipelineStage {
 
     @Override
     public void toXContent(XContentBuilder builder, ToXContent.Params params) throws IOException {
-        builder.field(OPERATOR_ARG, operator.getName());
+        builder.field(OPERATOR_ARG, operator.name());
         builder.field(TARGET_VALUE_ARG, targetValue);
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(operator.getName());
+        out.writeEnum(operator);
         out.writeDouble(targetValue);
     }
 
@@ -218,10 +162,9 @@ public class ValueFilterStage implements UnaryPipelineStage {
      * @throws IOException if an I/O error occurs during deserialization
      */
     public static ValueFilterStage readFrom(StreamInput in) throws IOException {
-        String operatorName = in.readString();
+        ValueFilterType operator = in.readEnum(ValueFilterType.class);
         double targetValue = in.readDouble();
 
-        Operator operator = Operator.fromString(operatorName);
         return new ValueFilterStage(operator, targetValue);
     }
 
@@ -263,7 +206,7 @@ public class ValueFilterStage implements UnaryPipelineStage {
             );
         }
 
-        Operator operator = Operator.fromString((String) operatorObj);
+        ValueFilterType operator = ValueFilterType.fromString((String) operatorObj);
         double targetValue = ((Number) targetValueObj).doubleValue();
 
         return new ValueFilterStage(operator, targetValue);

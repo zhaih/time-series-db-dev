@@ -16,5 +16,8 @@ ROOT
       VALUE(region)
     FUNCTION(maximum)
     FUNCTION(keepLastValue)
+    FUNCTION(>=)
+      VALUE(5)
+    FUNCTION(count)
     FUNCTION(alias)
       VALUE({{.region}})

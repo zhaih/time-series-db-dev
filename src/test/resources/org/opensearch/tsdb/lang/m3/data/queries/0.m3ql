@@ -7,4 +7,6 @@ fetch name:service.errors region:{us-*,ca}
   | minSeries region
   | maximum
   | keepLastValue
+  | >= 5
+  | count
   | alias {{.region}}

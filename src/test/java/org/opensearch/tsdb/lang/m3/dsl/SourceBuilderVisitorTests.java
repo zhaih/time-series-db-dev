@@ -15,6 +15,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.tsdb.core.utils.Constants;
 import org.opensearch.tsdb.lang.m3.common.AggregationType;
+import org.opensearch.tsdb.lang.m3.common.ValueFilterType;
 import org.opensearch.tsdb.lang.m3.common.WindowAggregationType;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.AbsPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.AggregationPlanNode;
@@ -32,6 +33,7 @@ import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.SortPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.TimeshiftPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.TransformNullPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.UnionPlanNode;
+import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.ValueFilterPlanNode;
 import org.opensearch.tsdb.lang.m3.stage.MovingStage;
 import org.opensearch.tsdb.query.aggregator.TimeSeriesCoordinatorAggregationBuilder;
 import org.opensearch.tsdb.query.aggregator.TimeSeriesUnfoldAggregationBuilder;
@@ -442,6 +444,27 @@ public class SourceBuilderVisitorTests extends OpenSearchTestCase {
 
         IllegalStateException exception = expectThrows(IllegalStateException.class, () -> visitor.visit(planNode));
         assertEquals("UnionPlanNode must have at least two children", exception.getMessage());
+    }
+
+    /**
+     * Test ValueFilterPlanNode with correct number of children (1).
+     */
+    public void testValueFilterPlanNodeWithOneChild() {
+        ValueFilterPlanNode planNode = new ValueFilterPlanNode(1, ValueFilterType.GE, 0.0);
+        planNode.addChild(createMockFetchNode(2));
+
+        // Should not throw an exception
+        assertNotNull(visitor.visit(planNode));
+    }
+
+    /**
+     * Test ValueFilterPlanNode with incorrect number of children (0).
+     */
+    public void testValueFilterPlanNodeWithNoChildren() {
+        ValueFilterPlanNode planNode = new ValueFilterPlanNode(1, ValueFilterType.GE, 0.0);
+
+        IllegalStateException exception = expectThrows(IllegalStateException.class, () -> visitor.visit(planNode));
+        assertEquals("ValueFilterPlanNode must have exactly one child", exception.getMessage());
     }
 
     /**
