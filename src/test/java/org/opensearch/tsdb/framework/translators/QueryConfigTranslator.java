@@ -7,20 +7,22 @@
  */
 package org.opensearch.tsdb.framework.translators;
 
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.tsdb.framework.models.QueryConfig;
 
 /**
- * Interface for translating different query types to internal query representation
+ * Interface for translating different query types to OpenSearch SearchRequest.
+ * This translator can be used in both REST tests and internal cluster tests.
  */
 public interface QueryConfigTranslator {
 
     /**
-     * Translate a query config to internal representation
+     * Translate a query config to OpenSearch SearchRequest
      *
      * @param queryConfig The query config to translate
      * @param indexName The target index name
-     * @return Translated query result
+     * @return SearchRequest for OpenSearch
      * @throws Exception if translation fails
      */
-    Object translate(QueryConfig queryConfig, String indexName) throws Exception;
+    SearchRequest translate(QueryConfig queryConfig, String indexName) throws Exception;
 }

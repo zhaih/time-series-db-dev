@@ -16,5 +16,12 @@ import org.opensearch.tsdb.framework.translators.QueryType;
  */
 public record QueryConfig(@JsonProperty("name") String name, @JsonProperty("type") QueryType type, @JsonProperty("query") String query,
     @JsonProperty("time_config") TimeConfig config, @JsonProperty("indices") String indices,
-    @JsonProperty("expected") ExpectedResponse expected) {
+    @JsonProperty("disable_pushdown") Boolean disablePushdown, @JsonProperty("expected") ExpectedResponse expected) {
+
+    /**
+     * Get the disable pushdown flag, defaulting to false if not specified
+     */
+    public boolean isDisablePushdown() {
+        return disablePushdown != null && disablePushdown;
+    }
 }

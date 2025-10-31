@@ -136,11 +136,25 @@ sourceSets {
         compileClasspath += sourceSets.main.output + sourceSets.test.output
         runtimeClasspath += sourceSets.main.output + sourceSets.test.output
     }
+
+    internalClusterTest {
+        java {
+            srcDirs = ['src/internalClusterTest/java']
+        }
+        resources {
+            srcDirs = ['src/internalClusterTest/resources']
+        }
+        compileClasspath += sourceSets.main.output + sourceSets.test.output
+        runtimeClasspath += sourceSets.main.output + sourceSets.test.output
+    }
 }
 
 configurations {
     javaRestTestImplementation.extendsFrom testImplementation
     javaRestTestRuntimeOnly.extendsFrom testRuntimeOnly
+
+    internalClusterTestImplementation.extendsFrom testImplementation
+    internalClusterTestRuntimeOnly.extendsFrom testRuntimeOnly
 
     // Resolve dependency conflicts
     all {
@@ -178,6 +192,21 @@ javaRestTest {
     }
 }
 
+task internalClusterTest(type: RestIntegTestTask) {
+    description = "Run internal cluster integration tests"
+    group = JavaBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = sourceSets.internalClusterTest.output.classesDirs
+    classpath = sourceSets.internalClusterTest.runtimeClasspath
+    mustRunAfter test, javaRestTest
+}
+
+internalClusterTest {
+    // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
+    if (System.getProperty("test.debug") != null) {
+        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    }
+}
+
 String javaccGrammarPath = 'src/main/java/org/opensearch/tsdb/lang/m3/m3ql/parser'
 String javaccOutputPath = 'src/main/java/org/opensearch/tsdb/lang/m3/m3ql/parser/generated'
 
@@ -203,6 +232,16 @@ testClusters.integTest {
 }
 
 testClusters.javaRestTest {
+    testDistribution = "ARCHIVE"
+
+    if (numZones > 1) numberOfZones = numZones
+    if (numNodes > 1) numberOfNodes = numNodes
+
+    // This installs our plugin into the testClusters
+    plugin(project.tasks.bundlePlugin.archiveFile)
+}
+
+testClusters.internalClusterTest {
     testDistribution = "ARCHIVE"
 
     if (numZones > 1) numberOfZones = numZones
@@ -290,6 +329,12 @@ dependencies {
     // jmh dependencies
     jmhImplementation 'org.openjdk.jmh:jmh-core:1.35'
     jmhAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.35'
+
+    // internalClusterTest dependencies
+    internalClusterTestImplementation 'com.fasterxml.jackson.core:jackson-core:2.18.2'
+    internalClusterTestImplementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+    internalClusterTestImplementation 'com.fasterxml.jackson.core:jackson-annotations:2.18.2'
+    internalClusterTestImplementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.2'
 }
 
 
@@ -337,6 +382,10 @@ forbiddenApisTest {
 }
 
 forbiddenApisJavaRestTest {
+    exclude 'org/opensearch/tsdb/lang/m3/m3ql/parser/generated/**'
+}
+
+forbiddenApisInternalClusterTest {
     exclude 'org/opensearch/tsdb/lang/m3/m3ql/parser/generated/**'
 }
 

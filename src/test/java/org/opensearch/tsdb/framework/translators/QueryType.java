@@ -84,7 +84,9 @@ public enum QueryType {
     }
 
     /**
-     * Create a QueryConfigTranslator instance for this query type
+     * Create a QueryConfigTranslator instance for this query type.
+     * This translator can be used in both REST tests and internal cluster tests
+     * since it returns SearchRequest.
      */
     public QueryConfigTranslator createTranslator() {
         return switch (this) {
