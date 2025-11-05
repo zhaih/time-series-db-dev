@@ -122,6 +122,11 @@ public class Constants {
         public static final String PER_SECOND = "perSecond";
 
         /**
+         * perSecondRate function name.
+         */
+        public static final String PER_SECOND_RATE = "perSecondRate";
+
+        /**
          * isNonNull function name.
          */
         public static final String IS_NON_NULL = "isNonNull";

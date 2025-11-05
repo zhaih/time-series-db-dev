@@ -29,6 +29,7 @@ import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.IsNonNullPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.KeepLastValuePlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.MovingPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.PerSecondPlanNode;
+import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.PerSecondRatePlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.RemoveEmptyPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.ScalePlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.ScaleToSecondsPlanNode;
@@ -309,6 +310,40 @@ public class SourceBuilderVisitorTests extends OpenSearchTestCase {
 
         IllegalStateException exception = expectThrows(IllegalStateException.class, () -> visitor.visit(planNode));
         assertEquals("PerSecondPlanNode must have exactly one child", exception.getMessage());
+    }
+
+    /**
+     * Test PerSecondRatePlanNode with correct number of children (1).
+     */
+    public void testPerSecondRatePlanNodeWithOneChild() {
+        PerSecondRatePlanNode planNode = new PerSecondRatePlanNode(1, "10s");
+        planNode.addChild(createMockFetchNode(2));
+
+        // Should not throw an exception
+        assertNotNull(visitor.visit(planNode));
+    }
+
+    /**
+     * Test PerSecondRatePlanNode with incorrect number of children (0).
+     */
+    public void testPerSecondRatePlanNodeWithNoChildren() {
+        PerSecondRatePlanNode planNode = new PerSecondRatePlanNode(1, "10s");
+
+        IllegalStateException exception = expectThrows(IllegalStateException.class, () -> visitor.visit(planNode));
+        assertEquals("PerSecondRatePlanNode must have exactly one child", exception.getMessage());
+    }
+
+    /**
+     * Test PerSecondRatePlanNode with different intervals.
+     */
+    public void testPerSecondRatePlanNodeWithDifferentIntervals() {
+        PerSecondRatePlanNode planNode1 = new PerSecondRatePlanNode(1, "30s");
+        planNode1.addChild(createMockFetchNode(2));
+        assertNotNull(visitor.visit(planNode1));
+
+        PerSecondRatePlanNode planNode2 = new PerSecondRatePlanNode(3, "5m");
+        planNode2.addChild(createMockFetchNode(4));
+        assertNotNull(visitor.visit(planNode2));
     }
 
     /**
