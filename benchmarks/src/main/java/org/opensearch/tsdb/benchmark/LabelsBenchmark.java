@@ -19,6 +19,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
+
 import org.opensearch.tsdb.core.model.ByteLabels;
 
 import java.util.Map;
@@ -38,6 +39,7 @@ import java.util.stream.IntStream;
 @Fork(1)
 public class LabelsBenchmark {
 
+    // TODO fix with params
     private ByteLabels initialized10Labels;
     private ByteLabels initialized40Labels;
     private ByteLabels labels10Labels;
