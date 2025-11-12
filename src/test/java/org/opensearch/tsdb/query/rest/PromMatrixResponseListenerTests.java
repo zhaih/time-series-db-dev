@@ -68,6 +68,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
         PromMatrixResponseListener listenerWithName = new PromMatrixResponseListener(
             new FakeRestChannel(new FakeRestRequest(), true, 1),
             TEST_AGG_NAME,
+            false,
             false
         );
 
@@ -82,7 +83,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
         // Act & Assert
         NullPointerException exception = expectThrows(
             NullPointerException.class,
-            () -> new PromMatrixResponseListener(channel, null, false)
+            () -> new PromMatrixResponseListener(channel, null, false, false)
         );
         assertEquals("finalAggregationName cannot be null", exception.getMessage());
     }
@@ -92,7 +93,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
     public void testBuildResponseWithLabels() throws Exception {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, false);
 
         List<TimeSeries> timeSeriesList = createTimeSeriesWithLabels();
         SearchResponse searchResponse = createSearchResponse(TEST_AGG_NAME, timeSeriesList);
@@ -114,7 +115,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
     public void testBuildResponseWithAlias() throws Exception {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, false);
 
         List<TimeSeries> timeSeriesList = createTimeSeriesWithAlias();
         SearchResponse searchResponse = createSearchResponse(TEST_AGG_NAME, timeSeriesList);
@@ -136,7 +137,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
         // Filter for only "agg2" - should match only that aggregation
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, "agg2", false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, "agg2", false, false);
 
         // Create response with 3 different aggregations (agg1, agg2, agg3)
         SearchResponse searchResponse = createSearchResponseWithMultipleAggregations();
@@ -161,7 +162,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
         // Filter for "nonexistent_agg" - should not match any aggregation
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, "nonexistent_agg", false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, "nonexistent_agg", false, false);
 
         // Create response with 3 different aggregations (agg1, agg2, agg3)
         SearchResponse searchResponse = createSearchResponseWithMultipleAggregations();
@@ -183,7 +184,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
     public void testBuildResponseWithEmptyTimeSeries() throws Exception {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, false);
 
         List<TimeSeries> emptyList = Collections.emptyList();
         SearchResponse searchResponse = createSearchResponse(TEST_AGG_NAME, emptyList);
@@ -202,7 +203,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
     public void testBuildResponseWithNullAggregations() throws Exception {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, false);
 
         SearchResponse searchResponse = createSearchResponseWithNullAggregations();
         XContentBuilder builder = JsonXContent.contentBuilder();
@@ -220,7 +221,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
     public void testBuildResponseWithEmptySamples() throws Exception {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, false);
 
         List<TimeSeries> timeSeriesList = createTimeSeriesWithEmptySamples();
         SearchResponse searchResponse = createSearchResponse(TEST_AGG_NAME, timeSeriesList);
@@ -238,7 +239,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
     public void testBuildResponseWithNullLabels() throws Exception {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, false);
 
         List<TimeSeries> timeSeriesList = createTimeSeriesWithNullLabels();
         SearchResponse searchResponse = createSearchResponse(TEST_AGG_NAME, timeSeriesList);
@@ -256,7 +257,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
     public void testBuildResponseWithNullAlias() throws Exception {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, false);
 
         List<TimeSeries> timeSeriesList = createTimeSeriesWithNullAlias();
         SearchResponse searchResponse = createSearchResponse(TEST_AGG_NAME, timeSeriesList);
@@ -272,12 +273,73 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
         assertFalse(responseContent.contains("\"__name__\""));
     }
 
+    // ========== Step Field Tests ==========
+
+    public void testResponseWithoutStepWhenIncludeStepIsFalse() throws Exception {
+        // Arrange
+        FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, false);
+
+        List<Sample> samples = List.of(new FloatSample(1000L, 10.0));
+        Labels labels = ByteLabels.fromMap(Map.of("test", "no_step"));
+        TimeSeries timeSeries = new TimeSeries(samples, labels, 1000L, 2000L, 5000L, "test_metric");
+        List<TimeSeries> timeSeriesList = List.of(timeSeries);
+
+        SearchResponse searchResponse = createSearchResponse(TEST_AGG_NAME, timeSeriesList);
+        XContentBuilder builder = JsonXContent.contentBuilder();
+
+        // Act
+        RestResponse response = listener.buildResponse(searchResponse, builder);
+
+        // Assert
+        Map<String, Object> parsed = validateSuccessResponse(response);
+        List<Map<String, Object>> results = getResultArray(parsed);
+        assertThat(results, hasSize(1));
+
+        // Step should NOT be present when includeStep is false
+        assertFalse("Step field should not be present when includeStep is false", results.get(0).containsKey("step"));
+    }
+
+    public void testResponseWithDifferentStepsPerTimeSeries() throws Exception {
+        // Arrange - Create multiple time series with different step sizes
+        FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, true);
+
+        List<Sample> samples1 = List.of(new FloatSample(1000L, 10.0));
+        Labels labels1 = ByteLabels.fromMap(Map.of("id", "1"));
+        TimeSeries ts1 = new TimeSeries(samples1, labels1, 1000L, 1000L, 5000L, "metric1");
+
+        List<Sample> samples2 = List.of(new FloatSample(2000L, 20.0));
+        Labels labels2 = ByteLabels.fromMap(Map.of("id", "2"));
+        TimeSeries ts2 = new TimeSeries(samples2, labels2, 2000L, 2000L, 10000L, "metric2");
+
+        List<Sample> samples3 = List.of(new FloatSample(3000L, 30.0));
+        Labels labels3 = ByteLabels.fromMap(Map.of("id", "3"));
+        TimeSeries ts3 = new TimeSeries(samples3, labels3, 3000L, 3000L, 30000L, "metric3");
+
+        SearchResponse searchResponse = createSearchResponse(TEST_AGG_NAME, List.of(ts1, ts2, ts3));
+        XContentBuilder builder = JsonXContent.contentBuilder();
+
+        // Act
+        RestResponse response = listener.buildResponse(searchResponse, builder);
+
+        // Assert
+        Map<String, Object> parsed = validateSuccessResponse(response);
+        List<Map<String, Object>> results = getResultArray(parsed);
+        assertThat(results, hasSize(3));
+
+        // Verify each time series has its own step value
+        assertEquals("First time series step", 5000, results.get(0).get("step"));
+        assertEquals("Second time series step", 10000, results.get(1).get("step"));
+        assertEquals("Third time series step", 30000, results.get(2).get("step"));
+    }
+
     // ========== Full Response Structure Tests ==========
 
     public void testFullResponseStructureWithSingleTimeSeries() throws Exception {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, true);
 
         List<Sample> samples = new ArrayList<>();
         samples.add(new FloatSample(1000L, 10.5));
@@ -295,13 +357,13 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
 
         // Assert - Full structure validation
         Map<String, Object> parsed = validateSuccessResponse(response);
+        Map<String, Object> data = (Map<String, Object>) parsed.get("data");
         List<Map<String, Object>> results = getResultArray(parsed);
 
         assertThat(results, hasSize(1));
         Map<String, Object> result = results.get(0);
 
         // Validate metric labels
-
         Map<String, String> metric = (Map<String, String>) result.get("metric");
         assertNotNull(metric);
         assertThat(metric.get("__name__"), equalTo("my_metric"));
@@ -319,12 +381,16 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
         // Second value: [2.0, "20.5"]
         assertThat(values.get(1).get(0), equalTo(2.0));
         assertThat(values.get(1).get(1), equalTo("20.5"));
+
+        // Validate step field (1000ms) at time series level
+        assertNotNull("Step field should be present in time series", result.get("step"));
+        assertEquals(1000, result.get("step"));
     }
 
     public void testFullResponseStructureWithMultipleTimeSeries() throws Exception {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, true);
 
         List<Sample> samples1 = List.of(new FloatSample(1000L, 10.0));
         Labels labels1 = ByteLabels.fromMap(Map.of("id", "1"));
@@ -342,6 +408,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
 
         // Assert
         Map<String, Object> parsed = validateSuccessResponse(response);
+        Map<String, Object> data = (Map<String, Object>) parsed.get("data");
         List<Map<String, Object>> results = getResultArray(parsed);
 
         assertThat(results, hasSize(2));
@@ -355,12 +422,16 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
         Map<String, String> metric2 = (Map<String, String>) results.get(1).get("metric");
         assertThat(metric2.get("__name__"), equalTo("metric2"));
         assertThat(metric2.get("id"), equalTo("2"));
+
+        // Validate step field (1000ms) at time series level
+        assertEquals(1000, results.get(0).get("step"));
+        assertEquals(1000, results.get(1).get("step"));
     }
 
     public void testFullErrorResponseStructure() throws Exception {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, false);
 
         SearchResponse searchResponse = createSearchResponseWithException();
         XContentBuilder builder = JsonXContent.contentBuilder();
@@ -382,7 +453,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
     public void testValueFormattingAsString() throws Exception {
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, false);
 
         // Create time series with various numeric values
         List<Sample> samples = new ArrayList<>();
@@ -423,7 +494,7 @@ public class PromMatrixResponseListenerTests extends OpenSearchTestCase {
 
         // Arrange
         FakeRestChannel channel = new FakeRestChannel(new FakeRestRequest(), true, 1);
-        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false);
+        PromMatrixResponseListener listener = new PromMatrixResponseListener(channel, TEST_AGG_NAME, false, false);
 
         List<Sample> samples = new ArrayList<>();
         long timestamp = 1000L;

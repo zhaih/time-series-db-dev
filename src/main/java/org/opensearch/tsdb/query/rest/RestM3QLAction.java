@@ -53,6 +53,7 @@ import static org.opensearch.rest.RestRequest.Method.POST;
  *   <li><b>partitions</b> (optional): Comma-separated list of indices to query</li>
  *   <li><b>explain</b> (optional): Return translated DSL instead of executing (default: false)</li>
  *   <li><b>pushdown</b> (optional): Enable pushdown optimizations (default: true)</li>
+ *   <li><b>include_step</b> (optional): Include step field in each time series (default: false)</li>
  *   <li><b>resolved_partitions</b> (optional, body only): Federation partition resolution info</li>
  * </ul>
  *
@@ -103,6 +104,7 @@ public class RestM3QLAction extends BaseRestHandler {
     private static final String EXPLAIN_PARAM = "explain";
     private static final String PUSHDOWN_PARAM = "pushdown";
     private static final String PROFILE_PARAM = "profile";
+    private static final String INCLUDE_STEP_PARAM = "include_step";
     private static final String RESOLVED_PARTITIONS_PARAM = "resolved_partitions";
 
     // Default parameter values
@@ -179,7 +181,10 @@ public class RestM3QLAction extends BaseRestHandler {
             final SearchRequest searchRequest = buildSearchRequest(params, searchSourceBuilder);
             final String finalAggName = AggregationNameExtractor.getFinalAggregationName(searchSourceBuilder);
 
-            return channel -> client.search(searchRequest, new PromMatrixResponseListener(channel, finalAggName, params.profile));
+            return channel -> client.search(
+                searchRequest,
+                new PromMatrixResponseListener(channel, finalAggName, params.profile, params.includeStep)
+            );
 
         } catch (Exception e) {
             return channel -> {
@@ -230,11 +235,12 @@ public class RestM3QLAction extends BaseRestHandler {
         boolean explain = request.paramAsBoolean(EXPLAIN_PARAM, false);
         boolean pushdown = request.paramAsBoolean(PUSHDOWN_PARAM, true);
         boolean profile = request.paramAsBoolean(PROFILE_PARAM, false);
+        boolean includeStep = request.paramAsBoolean(INCLUDE_STEP_PARAM, false);
 
         // Extract resolved partitions from request body (implements FederationMetadata)
         FederationMetadata federationMetadata = (requestBody != null) ? requestBody.resolvedPartitions() : null;
 
-        return new RequestParams(query, startMs, endMs, stepMs, indices, explain, pushdown, profile, federationMetadata);
+        return new RequestParams(query, startMs, endMs, stepMs, indices, explain, pushdown, profile, includeStep, federationMetadata);
     }
 
     /**
@@ -334,6 +340,6 @@ public class RestM3QLAction extends BaseRestHandler {
      * Internal record holding parsed request parameters.
      */
     protected record RequestParams(String query, long startMs, long endMs, long stepMs, String[] indices, boolean explain, boolean pushdown,
-        boolean profile, FederationMetadata federationMetadata) {
+        boolean profile, boolean includeStep, FederationMetadata federationMetadata) {
     }
 }

@@ -45,7 +45,8 @@ import java.util.Objects;
  *         "values": [
  *           [timestamp1, "value1"],
  *           [timestamp2, "value2"]
- *         ]
+ *         ],
+ *         "step": 10000
  *       }
  *     ]
  *   }
@@ -97,17 +98,22 @@ public class PromMatrixResponseListener extends RestToXContentListener<SearchRes
 
     private final boolean profile;
 
+    private final boolean includeStep;
+
     /**
      * Creates a new matrix response listener.
      *
      * @param channel the REST channel to send the response to
      * @param finalAggregationName the name of the final aggregation to extract (must not be null)
+     * @param profile whether to include profiling information in the response
+     * @param includeStep whether to include step field in each time series
      * @throws NullPointerException if finalAggregationName is null
      */
-    public PromMatrixResponseListener(RestChannel channel, String finalAggregationName, boolean profile) {
+    public PromMatrixResponseListener(RestChannel channel, String finalAggregationName, boolean profile, boolean includeStep) {
         super(channel);
         this.finalAggregationName = Objects.requireNonNull(finalAggregationName, "finalAggregationName cannot be null");
         this.profile = profile;
+        this.includeStep = includeStep;
     }
 
     /**
@@ -136,6 +142,12 @@ public class PromMatrixResponseListener extends RestToXContentListener<SearchRes
     /**
      * Transforms a search response into matrix format and writes it to the XContent builder.
      *
+     * <p>This method extracts time series data from the search response aggregations and transforms
+     * it into Prometheus matrix format. If the includeStep flag is set to true, all time series in
+     * the response will include their step size (query resolution) in milliseconds. Note that different
+     * time series may have different step values, but the includeStep flag applies to all time series
+     * in the response.</p>
+     *
      * @param response the search response containing time series aggregations
      * @param builder the XContent builder to write the matrix response to
      * @throws IOException if an I/O error occurs during writing
@@ -147,9 +159,11 @@ public class PromMatrixResponseListener extends RestToXContentListener<SearchRes
         builder.field(FIELD_RESULT_TYPE, RESULT_TYPE_MATRIX);
         builder.field(
             FIELD_RESULT,
-            TimeSeriesOutputMapper.extractAndTransformToPromMatrix(response.getAggregations(), finalAggregationName)
+            TimeSeriesOutputMapper.extractAndTransformToPromMatrix(response.getAggregations(), finalAggregationName, includeStep)
         );
         builder.endObject();
+
+        // Add profiling information if requested
         if (profile) {
             ProfileInfoMapper.extractProfileInfo(response, builder);
         }

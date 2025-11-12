@@ -73,6 +73,7 @@ public final class RestTestUtils {
      *   <li>Contains "status": "success"</li>
      *   <li>Contains "data" object with "resultType": "matrix"</li>
      *   <li>Contains "result" array</li>
+     *   <li>Each time series in the result contains "step" field (in milliseconds)</li>
      * </ul>
      *
      * @param response the REST response to validate

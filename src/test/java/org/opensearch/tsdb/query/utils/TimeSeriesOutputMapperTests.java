@@ -95,7 +95,7 @@ public class TimeSeriesOutputMapperTests extends OpenSearchTestCase {
         TimeSeries ts = new TimeSeries(samples, labels, 1000L, 2000L, 1000L, "my_metric");
 
         // Act
-        Map<String, Object> result = TimeSeriesOutputMapper.transformToPromMatrix(ts);
+        Map<String, Object> result = TimeSeriesOutputMapper.transformToPromMatrix(ts, false);
 
         // Assert
         assertNotNull(result);
@@ -122,7 +122,7 @@ public class TimeSeriesOutputMapperTests extends OpenSearchTestCase {
         TimeSeries ts = new TimeSeries(samples, labels, 1000L, 1000L, 1000L, null);
 
         // Act
-        Map<String, Object> result = TimeSeriesOutputMapper.transformToPromMatrix(ts);
+        Map<String, Object> result = TimeSeriesOutputMapper.transformToPromMatrix(ts, false);
 
         // Assert
         @SuppressWarnings("unchecked")
@@ -137,7 +137,7 @@ public class TimeSeriesOutputMapperTests extends OpenSearchTestCase {
         TimeSeries ts = new TimeSeries(samples, null, 1000L, 1000L, 1000L, "metric");
 
         // Act
-        Map<String, Object> result = TimeSeriesOutputMapper.transformToPromMatrix(ts);
+        Map<String, Object> result = TimeSeriesOutputMapper.transformToPromMatrix(ts, false);
 
         // Assert
         @SuppressWarnings("unchecked")
@@ -204,7 +204,7 @@ public class TimeSeriesOutputMapperTests extends OpenSearchTestCase {
         Aggregations aggregations = new Aggregations(List.of(internalTs));
 
         // Act
-        List<Map<String, Object>> result = TimeSeriesOutputMapper.extractAndTransformToPromMatrix(aggregations, "final_agg");
+        List<Map<String, Object>> result = TimeSeriesOutputMapper.extractAndTransformToPromMatrix(aggregations, "final_agg", false);
 
         // Assert
         assertThat(result, hasSize(1));
@@ -245,7 +245,7 @@ public class TimeSeriesOutputMapperTests extends OpenSearchTestCase {
         Aggregations aggregations = new Aggregations(List.of(internalTs));
 
         // Act
-        List<Map<String, Object>> result = TimeSeriesOutputMapper.extractAndTransformToPromMatrix(aggregations, "agg");
+        List<Map<String, Object>> result = TimeSeriesOutputMapper.extractAndTransformToPromMatrix(aggregations, "agg", false);
 
         // Assert
         assertThat(result, hasSize(2));

@@ -27,6 +27,7 @@ public class TimeSeriesOutputMapper {
     // Prometheus matrix format field names
     private static final String FIELD_METRIC = "metric";
     private static final String FIELD_VALUES = "values";
+    private static final String FIELD_STEP = "step";
 
     // Prometheus label names
     private static final String LABEL_NAME = "__name__";
@@ -73,10 +74,18 @@ public class TimeSeriesOutputMapper {
     /**
      * Transform a TimeSeries to Prometheus Matrix format (used in REST responses)
      *
+     * <p>Each time series includes:
+     * <ul>
+     *   <li>metric: labels for the time series</li>
+     *   <li>values: array of [timestamp, value] pairs</li>
+     *   <li>step: (optional) step size in milliseconds for this time series</li>
+     * </ul>
+     *
      * @param timeSeries The time series to transform
+     * @param includeStep Whether to include the step field
      * @return Map representing the Prometheus matrix format
      */
-    public static Map<String, Object> transformToPromMatrix(TimeSeries timeSeries) {
+    public static Map<String, Object> transformToPromMatrix(TimeSeries timeSeries, boolean includeStep) {
         Map<String, Object> series = new HashMap<>();
 
         // Add metric labels
@@ -91,6 +100,11 @@ public class TimeSeriesOutputMapper {
 
         // Transform samples to values array
         series.put(FIELD_VALUES, transformSamplesToValues(timeSeries.getSamples()));
+
+        // Optionally add step size in milliseconds (query resolution for this time series)
+        if (includeStep) {
+            series.put(FIELD_STEP, timeSeries.getStep());
+        }
 
         return series;
     }
@@ -158,14 +172,19 @@ public class TimeSeriesOutputMapper {
      *
      * @param aggregations The aggregations to extract from
      * @param finalAggName The name of the final aggregation to extract (null for all)
+     * @param includeStep Whether to include the step field in each time series
      * @return List of Prometheus matrix formatted results
      */
-    public static List<Map<String, Object>> extractAndTransformToPromMatrix(Aggregations aggregations, String finalAggName) {
+    public static List<Map<String, Object>> extractAndTransformToPromMatrix(
+        Aggregations aggregations,
+        String finalAggName,
+        boolean includeStep
+    ) {
         List<Map<String, Object>> result = new ArrayList<>();
         List<TimeSeries> timeSeriesList = extractTimeSeriesFromAggregations(aggregations, finalAggName);
 
         for (TimeSeries timeSeries : timeSeriesList) {
-            result.add(transformToPromMatrix(timeSeries));
+            result.add(transformToPromMatrix(timeSeries, includeStep));
         }
 
         return result;
