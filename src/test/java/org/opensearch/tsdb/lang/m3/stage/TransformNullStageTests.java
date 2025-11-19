@@ -115,6 +115,99 @@ public class TransformNullStageTests extends AbstractWireSerializingTestCase<Tra
     }
 
     /**
+     * Test case 4: NaN values should be treated as null and filled.
+     * This test ensures that NaN values in the input are replaced with the fill value.
+     */
+    public void testNaNValuesAreTreatedAsNull() {
+        TransformNullStage stage = new TransformNullStage(7.0);
+        // Create samples with NaN values
+        List<Sample> samples = List.of(
+            new FloatSample(10L, 1.0),      // valid
+            new FloatSample(20L, Double.NaN), // NaN should be treated as null -> 7.0
+            new FloatSample(30L, 3.0),      // valid
+            new FloatSample(40L, Double.NaN), // NaN should be treated as null -> 7.0
+            new FloatSample(50L, 5.0)       // valid
+        );
+        ByteLabels labels = ByteLabels.fromStrings("name", "metric_nan");
+        TimeSeries timeSeries = new TimeSeries(samples, labels, 10L, 50L, 10L, null);
+
+        List<TimeSeries> result = stage.process(List.of(timeSeries));
+
+        assertEquals(1, result.size());
+        TimeSeries resultSeries = result.get(0);
+        assertEquals(5, resultSeries.getSamples().size());
+
+        // NaN values should be replaced with fill value (7.0)
+        List<Sample> expectedSamples = List.of(
+            new FloatSample(10L, 1.0),  // original
+            new FloatSample(20L, 7.0),  // NaN replaced with fill value
+            new FloatSample(30L, 3.0),  // original
+            new FloatSample(40L, 7.0),  // NaN replaced with fill value
+            new FloatSample(50L, 5.0)   // original
+        );
+        assertSamplesEqual("NaN values test", expectedSamples, resultSeries.getSamples());
+    }
+
+    /**
+     * Test case 5: Mixed NaN and missing values.
+     * Both NaN values and missing timestamps should be filled with the fill value.
+     */
+    public void testMixedNaNAndMissingValues() {
+        TransformNullStage stage = new TransformNullStage(9.0);
+        // Create samples with both NaN and missing timestamps
+        List<Sample> samples = List.of(
+            new FloatSample(10L, 1.0),      // valid
+            // 20L is missing -> should become 9.0
+            new FloatSample(30L, Double.NaN), // NaN -> should become 9.0
+            new FloatSample(40L, 4.0)       // valid
+            // 50L is missing -> should become 9.0
+        );
+        ByteLabels labels = ByteLabels.fromStrings("name", "metric_mixed");
+        TimeSeries timeSeries = new TimeSeries(samples, labels, 10L, 50L, 10L, null);
+
+        List<TimeSeries> result = stage.process(List.of(timeSeries));
+
+        assertEquals(1, result.size());
+        TimeSeries resultSeries = result.get(0);
+        assertEquals(5, resultSeries.getSamples().size());
+
+        List<Sample> expectedSamples = List.of(
+            new FloatSample(10L, 1.0),  // original
+            new FloatSample(20L, 9.0),  // missing, filled
+            new FloatSample(30L, 9.0),  // NaN, filled
+            new FloatSample(40L, 4.0),  // original
+            new FloatSample(50L, 9.0)   // missing, filled
+        );
+        assertSamplesEqual("Mixed NaN and missing values test", expectedSamples, resultSeries.getSamples());
+    }
+
+    /**
+     * Test case 6: All NaN values.
+     * When all samples have NaN values, all should be replaced with fill value.
+     */
+    public void testAllNaNValues() {
+        TransformNullStage stage = new TransformNullStage(3.0);
+        // All samples have NaN values
+        List<Sample> samples = List.of(
+            new FloatSample(10L, Double.NaN),
+            new FloatSample(20L, Double.NaN),
+            new FloatSample(30L, Double.NaN)
+        );
+        ByteLabels labels = ByteLabels.fromStrings("name", "metric_all_nan");
+        TimeSeries timeSeries = new TimeSeries(samples, labels, 10L, 30L, 10L, null);
+
+        List<TimeSeries> result = stage.process(List.of(timeSeries));
+
+        assertEquals(1, result.size());
+        TimeSeries resultSeries = result.get(0);
+        assertEquals(3, resultSeries.getSamples().size());
+
+        // All NaN values should be replaced with 3.0
+        List<Sample> expectedSamples = List.of(new FloatSample(10L, 3.0), new FloatSample(20L, 3.0), new FloatSample(30L, 3.0));
+        assertSamplesEqual("All NaN values test", expectedSamples, resultSeries.getSamples());
+    }
+
+    /**
      * Test with empty input list.
      */
     public void testWithEmptyInput() {

@@ -361,6 +361,44 @@ public class AvgStageTests extends AbstractWireSerializingTestCase<AvgStage> {
         );
     }
 
+    public void testReduceWithNaNValuesSkipped() throws Exception {
+        // Test that NaN values are skipped during reduce operation
+        // This specifically tests AbstractGroupingSampleStage.aggregateSamplesIntoMap() lines 203-205
+
+        // Create time series with NaN values
+        List<TimeSeries> series1 = List.of(createTimeSeries("ts1", Map.of("service", "api"), List.of(10.0, Double.NaN, 30.0)));
+        List<TimeSeries> series2 = List.of(createTimeSeries("ts2", Map.of("service", "api"), List.of(20.0, 40.0, Double.NaN)));
+
+        TimeSeriesProvider provider1 = new InternalTimeSeries("test1", series1, Map.of());
+        TimeSeriesProvider provider2 = new InternalTimeSeries("test2", series2, Map.of());
+        List<TimeSeriesProvider> aggregations = List.of(provider1, provider2);
+
+        // Perform final reduce (materializes to FloatSample)
+        InternalAggregation result = avgStage.reduce(aggregations, true);
+
+        assertNotNull(result);
+        assertTrue(result instanceof TimeSeriesProvider);
+        TimeSeriesProvider provider = (TimeSeriesProvider) result;
+        List<TimeSeries> timeSeries = provider.getTimeSeries();
+        assertEquals(1, timeSeries.size());
+
+        TimeSeries reduced = timeSeries.get(0);
+        assertEquals(3, reduced.getSamples().size());
+
+        // NaN values should be skipped in aggregateSamplesIntoMap:
+        // 1000L: (10 + 20) / 2 = 15.0
+        // 2000L: (NaN skipped + 40) / 1 = 40.0
+        // 3000L: (30 + NaN skipped) / 1 = 30.0
+        assertEquals(
+            List.of(
+                new FloatSample(1000L, 15.0),  // (10 + 20) / 2
+                new FloatSample(2000L, 40.0),  // 40 / 1 (NaN skipped, not counted)
+                new FloatSample(3000L, 30.0)   // 30 / 1 (NaN skipped, not counted)
+            ),
+            reduced.getSamples()
+        );
+    }
+
     public void testFromArgsNoGrouping() {
         AvgStage stage = AvgStage.fromArgs(Map.of());
         assertNotNull(stage);

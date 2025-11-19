@@ -106,14 +106,15 @@ public class TSAggregationPluginTests extends TimeSeriesAggregatorTestCase {
             "unfold_sum",
             List.of(new SumStage(List.of("instance"))),
             1000L,
-            1300L,
+            1400L,
             100L
         );
 
         testCaseWithClosedChunkIndex(unfoldAgg, new MatchAllDocsQuery(), index -> {
             // Create multiple time series with same instance (should be summed)
-            createTimeSeriesDocument(index, "metric_1", "instance", "A", 1000L, 10.0, 1100L, 20.0, 1200L, 30.0);
-            createTimeSeriesDocument(index, "metric_2", "instance", "A", 1000L, 5.0, 1100L, 10.0, 1200L, 15.0);
+            // metric_1 includes a NaN value at 1300L to test NaN skipping
+            createTimeSeriesDocument(index, "metric_1", "instance", "A", 1000L, 10.0, 1100L, 20.0, 1200L, 30.0, 1300L, Double.NaN);
+            createTimeSeriesDocument(index, "metric_2", "instance", "A", 1000L, 5.0, 1100L, 10.0, 1200L, 15.0, 1300L, 25.0);
         }, (InternalTimeSeries result) -> {
             assertNotNull("Unfold aggregation result should not be null", result);
             List<TimeSeries> timeSeries = result.getTimeSeries();
@@ -124,13 +125,15 @@ public class TSAggregationPluginTests extends TimeSeriesAggregatorTestCase {
             TimeSeries aggregatedSeries = timeSeries.get(0);
 
             // Check that values are summed across both metrics
+            // At 1300L: NaN from metric_1 is skipped, so only 25.0 from metric_2
             List<Sample> expectedSamples = List.of(
-                new FloatSample(1000L, 15.0f),
-                new FloatSample(1100L, 30.0f),
-                new FloatSample(1200L, 45.0f)
+                new FloatSample(1000L, 15.0f),  // 10.0 + 5.0
+                new FloatSample(1100L, 30.0f),  // 20.0 + 10.0
+                new FloatSample(1200L, 45.0f),  // 30.0 + 15.0
+                new FloatSample(1300L, 25.0f)   // NaN (skipped) + 25.0 = 25.0
             );
             assertSamplesEqual(
-                "Summed samples should match expected values",
+                "Summed samples should match expected values (NaN should be skipped)",
                 expectedSamples,
                 aggregatedSeries.getSamples(),
                 SAMPLE_COMPARISON_DELTA

@@ -74,8 +74,13 @@ public class TransformNullStage implements UnaryPipelineStage {
             for (int i = 0; i < arraySize; i++) {
                 // Check if current existing sample matches this timestamp
                 if (sampleIndex < existingSamples.size() && existingSamples.get(sampleIndex).getTimestamp() == timestamp) {
-                    // Use existing value as-is (even if NaN)
-                    denseSamples.add(existingSamples.get(sampleIndex));
+                    double value = existingSamples.get(sampleIndex).getValue();
+                    // Treat NaN as null/missing
+                    if (Double.isNaN(value)) {
+                        denseSamples.add(new FloatSample(timestamp, fillValue));
+                    } else {
+                        denseSamples.add(existingSamples.get(sampleIndex));
+                    }
                     sampleIndex++;
                 } else {
                     // Missing timestamp, use fill value

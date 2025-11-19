@@ -108,6 +108,14 @@ public class SubtractStage extends AbstractBinaryProjectionStage {
 
     @Override
     protected Sample processSamples(Sample leftSample, Sample rightSample) {
+        // Treat NaN samples as null at the very beginning
+        if (leftSample != null && Double.isNaN(leftSample.getValue())) {
+            leftSample = null;
+        }
+        if (rightSample != null && Double.isNaN(rightSample.getValue())) {
+            rightSample = null;
+        }
+
         // Scenario 1: Both samples are null. Regardless keepNans, we should return null.
         if (leftSample == null && rightSample == null) {
             return null;
@@ -116,7 +124,7 @@ public class SubtractStage extends AbstractBinaryProjectionStage {
         if (keepNaNs && (leftSample == null || rightSample == null)) {
             return null;
         }
-        // Scenario 3: KeepNans is false, we treat Nan as 0.0
+        // Scenario 3: KeepNans is false, we treat null samples as 0.0
         Sample timestampSource = leftSample != null ? leftSample : rightSample;
         double leftValue = leftSample != null ? leftSample.getValue() : 0.0;
         double rightValue = rightSample != null ? rightSample.getValue() : 0.0;

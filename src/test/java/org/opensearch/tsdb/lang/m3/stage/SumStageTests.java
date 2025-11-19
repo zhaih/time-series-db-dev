@@ -428,6 +428,74 @@ public class SumStageTests extends AbstractWireSerializingTestCase<SumStage> {
         assertEquals("sum", sumStage.getName());
     }
 
+    public void testNaNValuesAreSkipped() {
+        // Test that NaN values are skipped during summation
+        List<TimeSeries> input = List.of(
+            createTimeSeries("ts1", Map.of("service", "api"), List.of(10.0, Double.NaN, 30.0)),
+            createTimeSeries("ts2", Map.of("service", "api"), List.of(20.0, 40.0, Double.NaN))
+        );
+
+        List<TimeSeries> result = sumStage.process(input);
+        assertEquals(1, result.size());
+        TimeSeries summed = result.get(0);
+        assertEquals(3, summed.getSamples().size());
+
+        // NaN values should be skipped: (10+20), (0+40), (30+0)
+        assertEquals(
+            List.of(
+                new FloatSample(1000L, 30.0),  // 10 + 20
+                new FloatSample(2000L, 40.0),  // NaN + 40 = 40
+                new FloatSample(3000L, 30.0)   // 30 + NaN = 30
+            ),
+            summed.getSamples()
+        );
+    }
+
+    public void testAllNaNValuesAtTimestamp() {
+        // Test that when all values are NaN at a timestamp, no sample is created
+        List<TimeSeries> input = List.of(
+            createTimeSeries("ts1", Map.of("service", "api"), List.of(10.0, Double.NaN, 30.0)),
+            createTimeSeries("ts2", Map.of("service", "api"), List.of(20.0, Double.NaN, 60.0))
+        );
+
+        List<TimeSeries> result = sumStage.process(input);
+        assertEquals(1, result.size());
+        TimeSeries summed = result.get(0);
+
+        // Only 2 timestamps should have values (NaN+NaN at timestamp 2000 is skipped entirely)
+        assertEquals(2, summed.getSamples().size());
+        assertEquals(
+            List.of(
+                new FloatSample(1000L, 30.0),  // 10 + 20
+                new FloatSample(3000L, 90.0)   // 30 + 60
+            ),
+            summed.getSamples()
+        );
+    }
+
+    public void testNaNValuesInGroupedSum() {
+        // Test NaN handling with grouping
+        List<TimeSeries> input = List.of(
+            createTimeSeries("ts1", Map.of("service", "service1"), List.of(5.0, Double.NaN, 25.0)),
+            createTimeSeries("ts2", Map.of("service", "service2"), List.of(Double.NaN, 6.0, 9.0))
+        );
+
+        List<TimeSeries> result = sumStageWithLabels.process(input);
+        assertEquals(2, result.size());
+
+        // Find service1 group
+        TimeSeries service1 = result.stream().filter(ts -> "service1".equals(ts.getLabels().get("service"))).findFirst().orElse(null);
+        assertNotNull(service1);
+        assertEquals(2, service1.getSamples().size()); // timestamps 1000 and 3000 only
+        assertEquals(List.of(new FloatSample(1000L, 5.0), new FloatSample(3000L, 25.0)), service1.getSamples());
+
+        // Find service2 group
+        TimeSeries service2 = result.stream().filter(ts -> "service2".equals(ts.getLabels().get("service"))).findFirst().orElse(null);
+        assertNotNull(service2);
+        assertEquals(2, service2.getSamples().size()); // timestamps 2000 and 3000 only
+        assertEquals(List.of(new FloatSample(2000L, 6.0), new FloatSample(3000L, 9.0)), service2.getSamples());
+    }
+
     public void testProcessEmptyInput() {
         List<TimeSeries> result = sumStage.process(List.of());
         assertTrue(result.isEmpty());

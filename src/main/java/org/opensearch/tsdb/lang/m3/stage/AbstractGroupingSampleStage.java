@@ -99,6 +99,10 @@ public abstract class AbstractGroupingSampleStage extends AbstractGroupingStage 
 
         for (TimeSeries series : groupSeries) {
             for (Sample sample : series.getSamples()) {
+                // Skip NaN values - treat them as null/missing
+                if (Double.isNaN(sample.getValue())) {
+                    continue;
+                }
                 Sample transformed = transformInputSample(sample);
                 long timestamp = transformed.getTimestamp();
                 timestampToAggregated.merge(timestamp, transformed, this::mergeReducedSamples);
@@ -195,6 +199,10 @@ public abstract class AbstractGroupingSampleStage extends AbstractGroupingStage 
      */
     private void aggregateSamplesIntoMap(List<Sample> samples, Map<Long, Sample> timestampToSample) {
         for (Sample sample : samples) {
+            // Skip NaN values - treat them as null/missing
+            if (Double.isNaN(sample.getValue())) {
+                continue;
+            }
             long timestamp = sample.getTimestamp();
             Sample transformed = transformInputSample(sample);
 

@@ -395,6 +395,53 @@ public class SubtractStageTests extends AbstractWireSerializingTestCase<Subtract
         assertTrue("Should return empty list when right input is empty", result2.isEmpty());
     }
 
+    public void testNaNValuesAreTreatedAsZero() {
+        // Test that when keepNaNs=false, NaN values are treated as 0.0
+        SubtractStage stage = new SubtractStage("right_series", false, Collections.emptyList());
+
+        // Left series with NaN values
+        List<Sample> leftSamples = Arrays.asList(
+            new FloatSample(1000L, 10.0),      // normal value
+            new FloatSample(2000L, Double.NaN), // NaN -> treated as 0.0
+            new FloatSample(3000L, 30.0),      // normal value
+            new FloatSample(4000L, Double.NaN)  // NaN -> treated as 0.0
+        );
+        ByteLabels leftLabels = ByteLabels.fromStrings("service", "api");
+        TimeSeries leftSeries = new TimeSeries(leftSamples, leftLabels, 1000L, 4000L, 1000L, "left-series");
+
+        // Right series with NaN values
+        List<Sample> rightSamples = Arrays.asList(
+            new FloatSample(1000L, 5.0),       // normal value
+            new FloatSample(2000L, 2.0),       // normal value
+            new FloatSample(3000L, Double.NaN), // NaN -> treated as 0.0
+            new FloatSample(4000L, Double.NaN)  // NaN -> treated as 0.0
+        );
+        ByteLabels rightLabels = ByteLabels.fromStrings("service", "api");
+        TimeSeries rightSeries = new TimeSeries(rightSamples, rightLabels, 1000L, 4000L, 1000L, "right-series");
+
+        List<TimeSeries> left = Arrays.asList(leftSeries);
+        List<TimeSeries> right = Arrays.asList(rightSeries);
+        List<TimeSeries> result = stage.process(left, right);
+
+        assertEquals(1, result.size());
+        TimeSeries resultSeries = result.get(0);
+
+        // Verify NaN handling:
+        // 1000L: 10.0 - 5.0 = 5.0 (both normal values)
+        // 2000L: NaN - 2.0 = 0.0 - 2.0 = -2.0 (left NaN treated as 0.0)
+        // 3000L: 30.0 - NaN = 30.0 - 0.0 = 30.0 (right NaN treated as 0.0)
+        // 4000L: NaN - NaN = null (both NaN -> both null -> no sample)
+        assertSamplesEqual(
+            "NaN values should be treated as 0.0 when keepNaNs=false, except when both are NaN",
+            List.of(
+                new FloatSample(1000L, 5.0),   // 10.0 - 5.0
+                new FloatSample(2000L, -2.0),  // NaN -> 0.0 - 2.0
+                new FloatSample(3000L, 30.0)   // 30.0 - NaN -> 0.0
+            ),
+            resultSeries.getSamples()
+        );
+    }
+
     private void verifyXContent(SubtractStage stage, String expectedJson) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
