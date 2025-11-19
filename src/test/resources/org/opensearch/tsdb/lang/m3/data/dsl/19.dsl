@@ -1,6 +1,5 @@
 {
   "size" : 0,
-  "track_total_hits": -1,
   "query" : {
     "bool" : {
       "filter" : [
@@ -39,6 +38,7 @@
       "boost" : 1.0
     }
   },
+  "track_total_hits" : -1,
   "aggregations" : {
     "0_unfold" : {
       "time_series_unfold" : {

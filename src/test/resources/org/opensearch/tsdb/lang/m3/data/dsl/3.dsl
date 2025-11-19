@@ -1,6 +1,5 @@
 {
   "size" : 0,
-   "track_total_hits": -1,
   "query" : {
     "bool" : {
       "should" : [
@@ -162,6 +161,7 @@
       "boost" : 1.0
     }
   },
+  "track_total_hits" : -1,
   "aggregations" : {
     "0" : {
       "filter" : {
@@ -510,7 +510,10 @@
           {
             "type" : "as_percent",
             "right_op_reference" : "13",
-            "labels": ["city_name", "region"]
+            "labels" : [
+              "city_name",
+              "region"
+            ]
           },
           {
             "type" : "transform_null",

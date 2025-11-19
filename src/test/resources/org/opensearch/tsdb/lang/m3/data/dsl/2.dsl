@@ -1,6 +1,5 @@
 {
   "size" : 0,
-  "track_total_hits": -1,
   "query" : {
     "bool" : {
       "should" : [
@@ -152,6 +151,7 @@
       "boost" : 1.0
     }
   },
+  "track_total_hits" : -1,
   "aggregations" : {
     "0" : {
       "filter" : {

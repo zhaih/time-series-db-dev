@@ -1,6 +1,5 @@
 {
   "size" : 0,
-  "track_total_hits": -1,
   "query" : {
     "bool" : {
       "should" : [
@@ -242,6 +241,7 @@
       "boost" : 1.0
     }
   },
+  "track_total_hits" : -1,
   "aggregations" : {
     "0" : {
       "filter" : {
@@ -562,7 +562,7 @@
           {
             "type" : "subtract",
             "right_op_reference" : "2",
-            "keep_nans": false
+            "keep_nans" : false
           },
           {
             "type" : "abs"
@@ -582,7 +582,9 @@
           {
             "type" : "divide",
             "right_op_reference" : "8",
-            "labels" : ["error_type"]
+            "labels" : [
+              "error_type"
+            ]
           },
           {
             "type" : "abs"
