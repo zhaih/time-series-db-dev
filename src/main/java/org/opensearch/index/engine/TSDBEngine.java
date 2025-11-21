@@ -719,14 +719,23 @@ public class TSDBEngine extends Engine {
     }
 
     /**
-     * History retention lock is not used.
+     * Acquires a lock on the translog to prevent operations from being trimmed during peer recovery.
      *
-     * @return a no-op Closeable
+     * TSDBEngine doesn't use Lucene soft deletes, but still needs to protect the translog from being
+     * trimmed during peer recovery. When the source shard (primary) performs peer recovery, it:
+     * 1. Acquires this lock to freeze the current minimum translog generation
+     * 2. Reads the safe commit's local checkpoint to determine startingSeqNo
+     * 3. Sends files (phase 1) and then operations from startingSeqNo onwards (phase 2)
+     *
+     * Without this lock, a concurrent flush could advance the safe commit's checkpoint and trigger
+     * translog trimming, potentially deleting operations that phase 2 still needs to send.
+     *
+     * @return a Closeable that releases the translog retention lock when closed
      */
     @Override
     public Closeable acquireHistoryRetentionLock() {
-        // TODO: check if this is needed for recovery
-        return () -> {};
+        ensureOpen();
+        return ((InternalTranslogManager) translogManager).getTranslog().acquireRetentionLock();
     }
 
     /**

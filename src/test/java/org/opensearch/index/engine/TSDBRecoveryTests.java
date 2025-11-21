@@ -17,6 +17,7 @@ import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.index.replication.OpenSearchIndexLevelReplicationTestCase;
 import org.opensearch.index.seqno.RetentionLeases;
 import org.opensearch.index.shard.IndexShard;
+import org.opensearch.index.translog.InternalTranslogManager;
 import org.opensearch.index.translog.Translog;
 import org.opensearch.indices.recovery.RecoveryState;
 import org.opensearch.indices.recovery.RecoveryTarget;
@@ -42,7 +43,7 @@ import static org.opensearch.tsdb.core.mapping.Constants.Mapping.DEFAULT_INDEX_M
  *
  * This corresponds to the RecoveryDuringReplicationTests for the default engine. TODO: expand test coverage to match
  */
-public class TSDBRecoveryDuringReplicationTests extends OpenSearchIndexLevelReplicationTestCase {
+public class TSDBRecoveryTests extends OpenSearchIndexLevelReplicationTestCase {
 
     @Override
     public void setUp() throws Exception {
@@ -128,6 +129,99 @@ public class TSDBRecoveryDuringReplicationTests extends OpenSearchIndexLevelRepl
         } finally {
             // Manually close shards to avoid primary term doc values check in ReplicationGroup.close(),
             // which isn't supported by the TSDBDirectoryReader used by TSDBEngine
+            closeShards(shards.getPrimary());
+            for (IndexShard replica : shards.getReplicas()) {
+                closeShards(replica);
+            }
+        }
+    }
+
+    /**
+     * Tests that the translog retention lock prevents trimming during peer recovery Phase 1.
+     *
+     * This test validates that acquireHistoryRetentionLock() protects translog generations
+     * from being deleted during recovery, even when trimTranslog() is explicitly called.
+     */
+    public void testFlushDuringPhase1DoesNotTrimTranslog() throws Exception {
+        Settings settings = Settings.builder()
+            .put("index.tsdb_engine.enabled", true)
+            .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1)
+            .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 0)
+            .build();
+
+        ReplicationGroup shards = createGroup(0, settings, DEFAULT_INDEX_MAPPING, new TSDBEngineFactory());
+        try {
+            shards.startAll();
+            TSDBEngine primaryEngine = (TSDBEngine) getEngine(shards.getPrimary());
+            InternalTranslogManager primaryTranslogManager = (InternalTranslogManager) primaryEngine.translogManager();
+
+            // Index first batch
+            int firstBatchDocs = indexSamples(shards, 100, 0);
+            long generationBeforeRoll = primaryTranslogManager.getTranslogGeneration().translogFileGeneration;
+
+            // Roll translog to create generation 2
+            primaryEngine.translogManager().rollTranslogGeneration();
+            long generationAfterRoll = primaryTranslogManager.getTranslogGeneration().translogFileGeneration;
+            assertEquals(generationBeforeRoll + 1, generationAfterRoll);
+            assertEquals(generationBeforeRoll, primaryTranslogManager.getTranslog().getMinFileGeneration());
+
+            // Index second batch into new generation
+            int secondBatchDocs = indexSamples(shards, 100, firstBatchDocs);
+            // Set local checkpoint of safe commit to a value in the second batch
+            // This makes the first generation eligible for deletion
+            primaryEngine.translogManager()
+                .getDeletionPolicy()
+                .setLocalCheckpointOfSafeCommit(randomLongBetween(firstBatchDocs + 1, firstBatchDocs + secondBatchDocs));
+            primaryEngine.translogManager().syncTranslog();
+
+            // Start async recovery blocked at INDEX stage
+            IndexShard replica = shards.addReplica();
+            final CountDownLatch recoveryBlocked = new CountDownLatch(1);
+            final CountDownLatch releaseRecovery = new CountDownLatch(1);
+
+            final Future<Void> recoveryFuture = shards.asyncRecoverReplica(
+                replica,
+                (indexShard, node) -> new BlockingTarget(
+                    RecoveryState.Stage.INDEX,
+                    recoveryBlocked,
+                    releaseRecovery,
+                    indexShard,
+                    node,
+                    recoveryListener,
+                    logger,
+                    threadPool
+                )
+            );
+
+            // Wait for recovery to block at Phase 1
+            recoveryBlocked.await();
+            logger.info("Recovery blocked at INDEX stage");
+
+            // Trigger translog trimming while recovery is in progress
+            // The retention lock should prevent deletion of the first generation
+            shards.getPrimary().trimTranslog();
+            primaryTranslogManager.syncTranslog();
+
+            // Verify first generation is still present (protected by retention lock)
+            assertEquals(generationBeforeRoll, primaryTranslogManager.getTranslog().getMinFileGeneration());
+
+            // Release recovery to continue
+            releaseRecovery.countDown();
+            logger.info("Released recovery to continue");
+
+            // Wait for recovery to complete
+            recoveryFuture.get();
+            logger.info("Recovery completed successfully");
+
+            // Verify replica has all samples
+            shards.refresh("test");
+            long primarySampleCount = TSDBTestUtils.countSamples(primaryEngine, primaryEngine.getHead());
+            for (IndexShard replicaShard : shards.getReplicas()) {
+                TSDBEngine replicaEngine = (TSDBEngine) getEngine(replicaShard);
+                long replicaSampleCount = TSDBTestUtils.countSamples(replicaEngine, replicaEngine.getHead());
+                assertEquals("Replica should have same sample count as primary", primarySampleCount, replicaSampleCount);
+            }
+        } finally {
             closeShards(shards.getPrimary());
             for (IndexShard replica : shards.getReplicas()) {
                 closeShards(replica);
