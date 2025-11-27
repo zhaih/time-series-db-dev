@@ -9,22 +9,31 @@ package org.opensearch.tsdb.core.index.live;
 
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.NumericDocValues;
-import org.apache.lucene.index.SortedSetDocValues;
+import org.opensearch.tsdb.core.reader.LabelsStorage;
 import org.opensearch.tsdb.core.reader.TSDBDocValues;
 
 /**
  * LiveSeriesIndexTSDBDocValues is a wrapper class for holding chunk reference doc values and labels doc values for live series index.
+ * Use static factory methods to create instances.
  */
 public class LiveSeriesIndexTSDBDocValues extends TSDBDocValues {
 
     /**
-     * Constructor for live series index tsdb doc values.
+     * Private constructor - use static factory methods.
+     */
+    private LiveSeriesIndexTSDBDocValues(NumericDocValues chunkRefDocValues, LabelsStorage labelsStorage) {
+        super(chunkRefDocValues, null, labelsStorage);
+    }
+
+    /**
+     * Creates a LiveSeriesIndexTSDBDocValues with the specified label storage.
      *
      * @param chunkRefDocValues the numeric doc values containing chunk references
-     * @param labelsDocValues the sorted set doc values containing labels
+     * @param labelsStorage the labels storage (binary or sorted_set)
+     * @return a new instance configured with the provided label storage
      */
-    public LiveSeriesIndexTSDBDocValues(NumericDocValues chunkRefDocValues, SortedSetDocValues labelsDocValues) {
-        super(chunkRefDocValues, labelsDocValues);
+    public static LiveSeriesIndexTSDBDocValues create(NumericDocValues chunkRefDocValues, LabelsStorage labelsStorage) {
+        return new LiveSeriesIndexTSDBDocValues(chunkRefDocValues, labelsStorage);
     }
 
     @Override

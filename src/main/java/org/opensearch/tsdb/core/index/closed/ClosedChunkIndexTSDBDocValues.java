@@ -9,21 +9,31 @@ package org.opensearch.tsdb.core.index.closed;
 
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.NumericDocValues;
-import org.apache.lucene.index.SortedSetDocValues;
+import org.opensearch.tsdb.core.reader.LabelsStorage;
 import org.opensearch.tsdb.core.reader.TSDBDocValues;
 
 /**
  * ClosedChunkIndexTSDBDocValues is a wrapper class for holding chunk doc values and labels doc values for closed chunk index.
+ *
  */
 public class ClosedChunkIndexTSDBDocValues extends TSDBDocValues {
+
     /**
-     * Constructor for closed chunk index tsdb doc values.
+     * Private constructor - use static factory methods.
+     */
+    private ClosedChunkIndexTSDBDocValues(BinaryDocValues chunkDocValues, LabelsStorage labelsStorage) {
+        super(null, chunkDocValues, labelsStorage);
+    }
+
+    /**
+     * Creates a ClosedChunkIndexTSDBDocValues with the specified label storage.
      *
      * @param chunkDocValues the binary doc values containing serialized chunk data
-     * @param labelsDocValues the sorted set doc values containing labels
+     * @param labelsStorage the labels storage (binary or sorted_set)
+     * @return a new instance configured with the provided label storage
      */
-    public ClosedChunkIndexTSDBDocValues(BinaryDocValues chunkDocValues, SortedSetDocValues labelsDocValues) {
-        super(chunkDocValues, labelsDocValues);
+    public static ClosedChunkIndexTSDBDocValues create(BinaryDocValues chunkDocValues, LabelsStorage labelsStorage) {
+        return new ClosedChunkIndexTSDBDocValues(chunkDocValues, labelsStorage);
     }
 
     @Override

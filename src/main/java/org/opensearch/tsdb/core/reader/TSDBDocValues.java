@@ -10,40 +10,35 @@ package org.opensearch.tsdb.core.reader;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
 
 /**
  * A wrapper class for holding different DocValues types for time series index so that DocValues can be used in same thread that acquired them.
+ *
+ * <p>Uses composition with {@link LabelsStorage} for label storage, allowing different
+ * storage strategies (binary or sorted set) without exposing implementation details.</p>
+ *
+ * <p>Use static factory methods in subclasses to create instances based on storage type.</p>
  */
 public abstract class TSDBDocValues {
     /** The numeric doc values containing chunk references */
     protected NumericDocValues chunkRefDocValues;
     /** The binary doc values containing serialized chunk data */
     protected BinaryDocValues chunkDocValues;
-    /** The sorted set doc values containing labels data */
-    SortedSetDocValues labelsDocValues;
+    /** The label storage (handles its own read logic) */
+    private final LabelsStorage labelsStorage;
 
     /**
-     * Constructor for tsdb doc values with chunk reference doc values.
+     * Protected constructor - use static factory methods in subclasses to create instances.
      *
-     * @param chunkRefDocValues the numeric doc values containing chunk references
-     * @param labelsDocValues the sorted set doc values containing labels
+     * @param chunkRefDocValues the numeric doc values containing chunk references (null for closed index)
+     * @param chunkDocValues the binary doc values containing chunk data (null for live index)
+     * @param labelsStorage the label storage for reading labels
      */
-    public TSDBDocValues(NumericDocValues chunkRefDocValues, SortedSetDocValues labelsDocValues) {
-        this.chunkDocValues = null;
+    protected TSDBDocValues(NumericDocValues chunkRefDocValues, BinaryDocValues chunkDocValues, LabelsStorage labelsStorage) {
         this.chunkRefDocValues = chunkRefDocValues;
-        this.labelsDocValues = labelsDocValues;
-    }
-
-    /**
-     * Constructor for tsdb doc values with binary chunk data.
-     *
-     * @param chunkDocValues the binary doc values containing serialized chunk data
-     * @param labelsDocValues the sorted set doc values containing labels
-     */
-    public TSDBDocValues(BinaryDocValues chunkDocValues, SortedSetDocValues labelsDocValues) {
-        this.chunkRefDocValues = null;
         this.chunkDocValues = chunkDocValues;
-        this.labelsDocValues = labelsDocValues;
+        this.labelsStorage = labelsStorage;
     }
 
     /**
@@ -61,11 +56,46 @@ public abstract class TSDBDocValues {
     public abstract BinaryDocValues getChunkDocValues();
 
     /**
-     * Gets the sorted set doc values containing labels.
+     * Gets the binary doc values containing serialized labels.
+     * This is a convenience method that checks the storage type.
      *
-     * @return the labels doc values
+     * @return the labels binary doc values (null if using sorted_set storage)
      */
-    public SortedSetDocValues getLabelsDocValues() {
-        return labelsDocValues;
+    public BinaryDocValues getLabelsBinaryDocValues() {
+        if (labelsStorage instanceof BinaryLabelsStorage binaryStorage) {
+            return binaryStorage.getDocValues();
+        }
+        return null;
+    }
+
+    /**
+     * Gets the sorted set doc values containing labels.
+     * This is a convenience method that checks the storage type.
+     *
+     * @return the labels sorted set doc values (null if using binary storage)
+     */
+    public SortedSetDocValues getLabelsSortedSetDocValues() {
+        if (labelsStorage instanceof SortedSetLabelsStorage sortedSetStorage) {
+            return sortedSetStorage.getDocValues();
+        }
+        return null;
+    }
+
+    /**
+     * Gets the label storage type being used.
+     *
+     * @return the label storage type (BINARY or SORTED_SET)
+     */
+    public LabelStorageType getLabelStorageType() {
+        return labelsStorage.getStorageType();
+    }
+
+    /**
+     * Gets the label storage for reading labels.
+     *
+     * @return the labels storage implementation
+     */
+    public LabelsStorage getLabelsStorage() {
+        return labelsStorage;
     }
 }

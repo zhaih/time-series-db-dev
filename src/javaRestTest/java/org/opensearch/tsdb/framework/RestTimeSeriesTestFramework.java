@@ -65,6 +65,7 @@ public abstract class RestTimeSeriesTestFramework extends OpenSearchRestTestCase
     private static final String DEFAULT_INDEX_SETTINGS_YAML = """
         index.refresh_interval: "1s"
         index.tsdb_engine.enabled: true
+        index.tsdb_engine.labels.storage_type: binary
         index.tsdb_engine.ooo_cutoff: "1d"
         index.queries.cache.enabled: false
         index.requests.cache.enable: false
@@ -76,16 +77,31 @@ public abstract class RestTimeSeriesTestFramework extends OpenSearchRestTestCase
     protected TestSetup testSetup;
     protected RestQueryExecutor queryExecutor;
     protected RestTSDBEngineIngestor ingestor;
+    private String customIndexSettingsYaml;
 
     /**
      * Initialize the test framework by loading test configuration from YAML.
      * Captures a single reference time to ensure all relative timestamps use the same base.
+     * Uses default binary label storage settings.
      *
      * @param yamlResourcePath Path to the YAML test case file (relative to resources)
      * @throws IOException If initialization fails
      */
     protected void initializeTest(String yamlResourcePath) throws IOException {
+        initializeTest(yamlResourcePath, null);
+    }
+
+    /**
+     * Initialize the test framework by loading test configuration from YAML with custom settings.
+     * Captures a single reference time to ensure all relative timestamps use the same base.
+     *
+     * @param yamlResourcePath Path to the YAML test case file (relative to resources)
+     * @param customSettingsYaml Optional custom index settings YAML to override defaults (null to use defaults)
+     * @throws IOException If initialization fails
+     */
+    protected void initializeTest(String yamlResourcePath, String customSettingsYaml) throws IOException {
         Instant referenceTime = Instant.now();
+        this.customIndexSettingsYaml = customSettingsYaml;
 
         try {
             testCase = YamlLoader.loadTestCase(yamlResourcePath, referenceTime);
@@ -152,9 +168,10 @@ public abstract class RestTimeSeriesTestFramework extends OpenSearchRestTestCase
         String indexName = indexConfig.name();
 
         try {
-            // Parse the YAML settings template
+            // Parse the YAML settings template (use custom if provided, otherwise use default)
             ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
-            Map<String, Object> defaultSettings = yamlMapper.readValue(DEFAULT_INDEX_SETTINGS_YAML, Map.class);
+            String settingsYaml = customIndexSettingsYaml != null ? customIndexSettingsYaml : DEFAULT_INDEX_SETTINGS_YAML;
+            Map<String, Object> defaultSettings = yamlMapper.readValue(settingsYaml, Map.class);
 
             // Merge default settings with index configuration
             Map<String, Object> indexSettings = new HashMap<>(defaultSettings);

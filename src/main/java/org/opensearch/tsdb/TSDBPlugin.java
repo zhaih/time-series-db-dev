@@ -22,6 +22,7 @@ import org.opensearch.common.settings.SettingsFilter;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
 import org.opensearch.tsdb.core.utils.Constants;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.env.Environment;
@@ -280,6 +281,19 @@ public class TSDBPlugin extends Plugin implements SearchPlugin, EnginePlugin, Ac
     );
 
     /**
+     * Setting for the label storage type in DocValues.
+     * - BINARY: BinaryDocValues (default) - faster deserialization, higher storage cost
+     * - SORTED_SET: SortedSetDocValues - better compression, slower reads
+     */
+    public static final Setting<LabelStorageType> TSDB_ENGINE_LABEL_STORAGE_TYPE = new Setting<>(
+        "index.tsdb_engine.labels.storage_type",
+        LabelStorageType.BINARY.getValue(),
+        LabelStorageType::fromString,
+        Setting.Property.IndexScope,
+        Setting.Property.Final
+    );
+
+    /**
      * Default constructor
      */
     public TSDBPlugin() {}
@@ -324,7 +338,8 @@ public class TSDBPlugin extends Plugin implements SearchPlugin, EnginePlugin, Ac
             TSDB_ENGINE_CHUNK_DURATION,
             TSDB_ENGINE_BLOCK_DURATION,
             TSDB_ENGINE_TIME_UNIT,
-            TSDB_ENGINE_OOO_CUTOFF
+            TSDB_ENGINE_OOO_CUTOFF,
+            TSDB_ENGINE_LABEL_STORAGE_TYPE
         );
     }
 

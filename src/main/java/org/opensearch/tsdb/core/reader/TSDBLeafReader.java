@@ -54,8 +54,8 @@ public abstract class TSDBLeafReader extends SequentialStoredFieldsLeafReader {
     public abstract List<ChunkIterator> chunksForDoc(int docId, TSDBDocValues tsdbDocValues) throws IOException;
 
     /**
-     * Parse labels from SortedSetDocValues into a ByteLabels object.
-     * Labels are stored as "key:value" strings in the SortedSetDocValues.
+     * Parse labels from DocValues into a Labels object.
+     * Labels are stored in a binary/sorted set serialized format for efficient retrieval.
      * @param docId the document ID to retrieve labels for
      * @param tsdbDocValues the TSDBDocValues containing doc values for labels. tsdbDocValues should be acquired in the same thread that calls this method.
      * @return a Labels object representing the labels associated with the document

@@ -30,11 +30,24 @@ import java.util.List;
  *
  * <p>Test configurations are defined in YAML files under test_cases/ directory.
  * Each test method loads a different YAML configuration to test different scenarios.
+ *
+ * <p>Tests are run with both binary and sorted_set label storage types to ensure
+ * compatibility across different storage configurations.
  */
 public class ExampleTSDBClusterIT extends TimeSeriesTestFramework {
 
     private static final String SIMPLE_TEST_YAML = "test_cases/example_tsdb_cluster_it.yaml";
     private static final String MULTI_NODE_TEST_YAML = "test_cases/multi_shard_multi_node_tsdb_it.yaml";
+
+    // Settings for sorted_set label storage type
+    private static final String SORTED_SET_INDEX_SETTINGS_YAML = """
+        index.refresh_interval: "1s"
+        index.tsdb_engine.enabled: true
+        index.tsdb_engine.labels.storage_type: sorted_set
+        index.tsdb_engine.ooo_cutoff: "1d"
+        index.queries.cache.enabled: false
+        index.requests.cache.enable: false
+        """;
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
@@ -42,7 +55,8 @@ public class ExampleTSDBClusterIT extends TimeSeriesTestFramework {
     }
 
     /**
-     * Test basic M3QL query execution with single-node, single-shard configuration.
+     * Test basic M3QL query execution with single-node, single-shard configuration
+     * using binary label storage (default).
      * The YAML configuration defines:
      * <ul>
      *   <li>Input time series data with HTTP request metrics</li>
@@ -52,13 +66,24 @@ public class ExampleTSDBClusterIT extends TimeSeriesTestFramework {
      *
      * @throws Exception If the test fails
      */
-    public void testSimpleTSDBQuery() throws Exception {
+    public void testSimpleTSDBQueryWithBinaryLabels() throws Exception {
         loadTestConfigurationFromFile(SIMPLE_TEST_YAML);
         runBasicTest();
     }
 
     /**
-     * Test multi-shard data distribution and query execution.
+     * Test basic M3QL query execution with single-node, single-shard configuration
+     * using sorted_set label storage.
+     *
+     * @throws Exception If the test fails
+     */
+    public void testSimpleTSDBQueryWithSortedSetLabels() throws Exception {
+        loadTestConfigurationFromFile(SIMPLE_TEST_YAML, SORTED_SET_INDEX_SETTINGS_YAML);
+        runBasicTest();
+    }
+
+    /**
+     * Test multi-shard data distribution and query execution with binary label storage (default).
      * <p>This test validates:
      * <ul>
      *   <li>Index creation with 3 shards and 1 replica</li>
@@ -70,7 +95,7 @@ public class ExampleTSDBClusterIT extends TimeSeriesTestFramework {
      *
      * @throws Exception If the test fails
      */
-    public void testMultiShardDistribution() throws Exception {
+    public void testMultiShardDistributionWithBinaryLabels() throws Exception {
         loadTestConfigurationFromFile(MULTI_NODE_TEST_YAML);
         ingestTestData();
 

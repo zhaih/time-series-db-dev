@@ -28,6 +28,7 @@ import org.opensearch.tsdb.core.chunk.ChunkIterator;
 import org.opensearch.tsdb.core.chunk.Encoding;
 import org.opensearch.tsdb.core.index.closed.ClosedChunkIndex;
 import org.opensearch.tsdb.core.index.closed.ClosedChunkIndexLeafReader;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
 import org.opensearch.tsdb.core.utils.Constants;
 import org.opensearch.tsdb.core.index.live.LiveSeriesIndex;
 import org.opensearch.tsdb.core.index.live.LiveSeriesIndexLeafReader;
@@ -153,7 +154,8 @@ public abstract class TimeSeriesAggregatorTestCase extends AggregatorTestCase {
         ClosedChunkIndex closedChunkIndex = new ClosedChunkIndex(
             tempDir,
             new ClosedChunkIndex.Metadata(tempDir.getFileName().toString(), 0, 0),
-            Constants.Time.DEFAULT_TIME_UNIT
+            Constants.Time.DEFAULT_TIME_UNIT,
+            Settings.EMPTY
         );
 
         try {
@@ -240,7 +242,7 @@ public abstract class TimeSeriesAggregatorTestCase extends AggregatorTestCase {
         Path tempDir = createTempDir();
 
         // Create LiveSeriesIndex
-        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(tempDir);
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(tempDir, Settings.EMPTY);
 
         try {
             // Create test helper with chunk management
@@ -378,7 +380,7 @@ public abstract class TimeSeriesAggregatorTestCase extends AggregatorTestCase {
                 @Override
                 public LeafReader wrap(LeafReader reader) {
                     try {
-                        return new LiveSeriesIndexLeafReader(reader, memChunkReader);
+                        return new LiveSeriesIndexLeafReader(reader, memChunkReader, LabelStorageType.BINARY);
                     } catch (IOException e) {
                         throw new RuntimeException("Failed to wrap LeafReader with LiveSeriesIndexLeafReader", e);
                     }
@@ -408,7 +410,7 @@ public abstract class TimeSeriesAggregatorTestCase extends AggregatorTestCase {
                 @Override
                 public LeafReader wrap(LeafReader reader) {
                     try {
-                        return new ClosedChunkIndexLeafReader(reader);
+                        return new ClosedChunkIndexLeafReader(reader, org.opensearch.tsdb.core.mapping.LabelStorageType.BINARY);
                     } catch (IOException e) {
                         throw new RuntimeException("Failed to wrap LeafReader with ClosedChunkIndexLeafReader", e);
                     }

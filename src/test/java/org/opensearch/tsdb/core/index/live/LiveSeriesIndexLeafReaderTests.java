@@ -7,16 +7,16 @@
  */
 package org.opensearch.tsdb.core.index.live;
 
+import org.apache.lucene.document.BinaryDocValuesField;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.NumericDocValuesField;
-import org.apache.lucene.document.SortedSetDocValuesField;
+import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.NumericDocValues;
-import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
@@ -25,6 +25,8 @@ import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.tsdb.core.chunk.ChunkAppender;
 import org.opensearch.tsdb.core.chunk.ChunkIterator;
 import org.opensearch.tsdb.core.chunk.XORChunk;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
+import org.opensearch.tsdb.core.model.ByteLabels;
 import org.opensearch.tsdb.core.model.Labels;
 import org.opensearch.tsdb.core.reader.TSDBDocValues;
 
@@ -33,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.opensearch.tsdb.core.mapping.Constants;
 import static org.opensearch.tsdb.core.mapping.Constants.IndexSchema.LABELS;
 import static org.opensearch.tsdb.core.mapping.Constants.IndexSchema.REFERENCE;
 
@@ -95,7 +98,7 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader);
+            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader, LabelStorageType.BINARY);
 
             assertNotNull("Reader should not be null", leafReader);
             assertEquals("numDocs should match", innerReader.numDocs(), leafReader.numDocs());
@@ -113,17 +116,17 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader);
+            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader, LabelStorageType.BINARY);
             TSDBDocValues tsdbDocValues = leafReader.getTSDBDocValues();
 
             assertNotNull("TSDBDocValues should not be null", tsdbDocValues);
             assertTrue("Should be LiveSeriesIndexTSDBDocValues", tsdbDocValues instanceof LiveSeriesIndexTSDBDocValues);
 
             NumericDocValues chunkRefDocValues = tsdbDocValues.getChunkRefDocValues();
-            SortedSetDocValues labelsDocValues = tsdbDocValues.getLabelsDocValues();
+            BinaryDocValues labelsBinaryDocValues = tsdbDocValues.getLabelsBinaryDocValues();
 
             assertNotNull("ChunkRefDocValues should not be null", chunkRefDocValues);
-            assertNotNull("LabelsDocValues should not be null", labelsDocValues);
+            assertNotNull("LabelsBinaryDocValues should not be null", labelsBinaryDocValues);
 
             expectThrows(UnsupportedOperationException.class, tsdbDocValues::getChunkDocValues);
         }
@@ -137,7 +140,7 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader);
+            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader, LabelStorageType.BINARY);
             TSDBDocValues tsdbDocValues = leafReader.getTSDBDocValues();
 
             List<ChunkIterator> chunks = leafReader.chunksForDoc(0, tsdbDocValues);
@@ -164,7 +167,7 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader);
+            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader, LabelStorageType.BINARY);
             TSDBDocValues tsdbDocValues = leafReader.getTSDBDocValues();
 
             List<ChunkIterator> chunks = leafReader.chunksForDoc(0, tsdbDocValues);
@@ -182,7 +185,7 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader);
+            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader, LabelStorageType.BINARY);
             TSDBDocValues tsdbDocValues = leafReader.getTSDBDocValues();
 
             Labels labels = leafReader.labelsForDoc(0, tsdbDocValues);
@@ -197,7 +200,9 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
     public void testMissingChunkRefField() throws IOException {
         // Create document without chunk reference field
         Document doc = new Document();
-        doc.add(new SortedSetDocValuesField(LABELS, new BytesRef("__name__:test_metric")));
+        ByteLabels labels = ByteLabels.fromStrings("__name__", "test_metric");
+        BytesRef serializedLabels = new BytesRef(labels.getRawBytes());
+        doc.add(new BinaryDocValuesField(LABELS, serializedLabels));
         indexWriter.addDocument(doc);
         indexWriter.commit();
 
@@ -205,7 +210,7 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader);
+            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader, LabelStorageType.BINARY);
 
             IOException exception = expectThrows(IOException.class, leafReader::getTSDBDocValues);
             assertTrue("Should mention chunk ref field missing", exception.getMessage().contains("Chunk ref field '" + REFERENCE + "'"));
@@ -223,10 +228,10 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader);
+            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader, LabelStorageType.BINARY);
 
             IOException exception = expectThrows(IOException.class, leafReader::getTSDBDocValues);
-            assertTrue("Should mention labels field missing", exception.getMessage().contains("Labels field '" + LABELS + "'"));
+            assertTrue("Should mention labels field missing", exception.getMessage().contains("Labels field"));
         }
     }
 
@@ -238,7 +243,7 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader);
+            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader, LabelStorageType.BINARY);
 
             // Test core delegated methods
             assertSame("getCoreCacheHelper should delegate", innerReader.getCoreCacheHelper(), leafReader.getCoreCacheHelper());
@@ -264,9 +269,9 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
                 leafReader.getNumericDocValues(REFERENCE) != null
             );
             assertEquals(
-                "getSortedSetDocValues should delegate",
-                innerReader.getSortedSetDocValues(LABELS) != null,
-                leafReader.getSortedSetDocValues(LABELS) != null
+                "getBinaryDocValues should delegate for labels",
+                innerReader.getBinaryDocValues(Constants.IndexSchema.LABELS) != null,
+                leafReader.getBinaryDocValues(Constants.IndexSchema.LABELS) != null
             );
 
             // Test getNumericDocValues() delegation with non-existent field
@@ -336,8 +341,8 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
                 leafReader.getBinaryDocValues("non_existent_field")
             );
 
-            // Test getSortedSetDocValues with existing labels field
-            assertNotNull("getSortedSetDocValues should work with labels field", leafReader.getSortedSetDocValues(LABELS));
+            // Test getBinaryDocValues with existing labels_binary field
+            assertNotNull("getBinaryDocValues should work with labels field", leafReader.getBinaryDocValues(Constants.IndexSchema.LABELS));
 
             // Test vector operations delegation
             assertNull(
@@ -395,7 +400,7 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader);
+            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader, LabelStorageType.BINARY);
 
             // Test vector operations (should delegate without throwing)
             assertNull("getFloatVectorValues should delegate", leafReader.getFloatVectorValues("non_existent_field"));
@@ -425,7 +430,7 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader);
+            LiveSeriesIndexLeafReader leafReader = new LiveSeriesIndexLeafReader(innerReader, memChunkReader, LabelStorageType.BINARY);
             TSDBDocValues tsdbDocValues = leafReader.getTSDBDocValues();
 
             // Test first document
@@ -447,9 +452,12 @@ public class LiveSeriesIndexLeafReaderTests extends OpenSearchTestCase {
     private void createTestDocument(long reference, String metricName, String host, String region) throws IOException {
         Document doc = new Document();
         doc.add(new NumericDocValuesField(REFERENCE, reference));
-        doc.add(new SortedSetDocValuesField(LABELS, new BytesRef("__name__:" + metricName)));
-        doc.add(new SortedSetDocValuesField(LABELS, new BytesRef("host:" + host)));
-        doc.add(new SortedSetDocValuesField(LABELS, new BytesRef("region:" + region)));
+
+        // Create labels and serialize to BinaryDocValues
+        ByteLabels labels = ByteLabels.fromStrings("__name__", metricName, "host", host, "region", region);
+        BytesRef serializedLabels = new BytesRef(labels.getRawBytes());
+        doc.add(new BinaryDocValuesField(LABELS, serializedLabels));
+
         indexWriter.addDocument(doc);
     }
 }

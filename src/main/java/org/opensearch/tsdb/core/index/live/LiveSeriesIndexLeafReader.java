@@ -27,9 +27,10 @@ import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.util.Bits;
 import org.opensearch.tsdb.core.chunk.ChunkIterator;
-import org.opensearch.tsdb.core.index.IndexUtils;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
 import org.opensearch.tsdb.core.mapping.Constants;
 import org.opensearch.tsdb.core.model.Labels;
+import org.opensearch.tsdb.core.reader.LabelsStorage;
 import org.opensearch.tsdb.core.reader.TSDBDocValues;
 import org.opensearch.tsdb.core.reader.TSDBLeafReader;
 
@@ -46,6 +47,7 @@ public class LiveSeriesIndexLeafReader extends TSDBLeafReader {
 
     private final LeafReader inner;
     private final MemChunkReader memChunkReader;
+    private final LabelStorageType labelStorageType;
     // TODO : Add map Map<MemSeries, Set<MemChunk>> mappedChunks to reduce already mmaped chunks from results.
 
     /**
@@ -54,28 +56,29 @@ public class LiveSeriesIndexLeafReader extends TSDBLeafReader {
      *
      * @param inner the underlying LeafReader to wrap
      * @param memChunkReader read memchunks given a reference
+     * @param labelStorageType the storage type configured for labels
      * @throws IOException if an error occurs during initialization
      */
-    public LiveSeriesIndexLeafReader(LeafReader inner, MemChunkReader memChunkReader) throws IOException {
+    public LiveSeriesIndexLeafReader(LeafReader inner, MemChunkReader memChunkReader, LabelStorageType labelStorageType)
+        throws IOException {
         super(inner);
         this.inner = inner;
         this.memChunkReader = memChunkReader;
+        this.labelStorageType = labelStorageType;
         // TODO : Delete already mmaped chunks
     }
 
     @Override
     public TSDBDocValues getTSDBDocValues() throws IOException {
         try {
-
             NumericDocValues chunkRefValues = this.getNumericDocValues(Constants.IndexSchema.REFERENCE);
-            SortedSetDocValues labelsDocValues = this.getSortedSetDocValues(Constants.IndexSchema.LABELS);
             if (chunkRefValues == null) {
                 throw new IOException("Chunk ref field '" + Constants.IndexSchema.REFERENCE + "'not found in live series index.");
             }
-            if (labelsDocValues == null) {
-                throw new IOException("Labels field '" + Constants.IndexSchema.LABELS + "' not found in live series index.");
-            }
-            return new LiveSeriesIndexTSDBDocValues(chunkRefValues, labelsDocValues);
+
+            // Use centralized label storage retrieval
+            LabelsStorage labelsStorage = labelStorageType.getLabelsStorageOrThrow(this, "in live series index");
+            return LiveSeriesIndexTSDBDocValues.create(chunkRefValues, labelsStorage);
         } catch (IOException e) {
             throw new IOException("Error accessing TSDBDocValues in LiveSeriesIndexLeafReader: " + e.getMessage(), e);
         }
@@ -97,7 +100,7 @@ public class LiveSeriesIndexLeafReader extends TSDBLeafReader {
 
     @Override
     public Labels labelsForDoc(int docId, TSDBDocValues tsdbDocValues) throws IOException {
-        return IndexUtils.labelsForDoc(docId, tsdbDocValues);
+        return tsdbDocValues.getLabelsStorage().readLabels(docId);
     }
 
     @Override

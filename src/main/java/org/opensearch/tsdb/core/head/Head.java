@@ -86,7 +86,7 @@ public class Head implements Closeable {
             }
 
             try {
-                liveSeriesIndex = new LiveSeriesIndex(headDir);
+                liveSeriesIndex = new LiveSeriesIndex(headDir, indexSettings);
             } catch (IOException e) {
                 throw new RuntimeException("Failed to initialize the live series index", e);
             }

@@ -156,6 +156,33 @@ public class ByteLabels implements Labels {
         return EMPTY;
     }
 
+    /**
+     * Returns the internal byte array representation of labels.
+     * The returned array is the internal representation and should not be modified.
+     * This is intended for efficient serialization to BinaryDocValues.
+     *
+     * @return internal byte array in ByteLabels format
+     */
+    public byte[] getRawBytes() {
+        return data;
+    }
+
+    /**
+     * Creates a ByteLabels instance directly from a byte array.
+     * The byte array must be in the ByteLabels internal format.
+     * This is intended for efficient deserialization from BinaryDocValues.
+     *
+     * @param data byte array in ByteLabels format
+     * @return new ByteLabels instance
+     * @throws IllegalArgumentException if data is null
+     */
+    public static ByteLabels fromRawBytes(byte[] data) {
+        if (data == null) {
+            throw new IllegalArgumentException("data cannot be null");
+        }
+        return new ByteLabels(data);
+    }
+
     private static ByteLabels encodeLabels(TreeMap<String, String> labels) {
         if (labels.isEmpty()) {
             return EMPTY;

@@ -15,7 +15,6 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.LongRange;
 import org.apache.lucene.document.NumericDocValuesField;
-import org.apache.lucene.document.SortedSetDocValuesField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexCommit;
@@ -33,10 +32,13 @@ import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.io.IOUtils;
 import org.opensearch.core.common.io.stream.BytesStreamInput;
 import org.opensearch.index.engine.TSDBTragicException;
+import org.opensearch.tsdb.TSDBPlugin;
 import org.opensearch.tsdb.core.head.MemSeries;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
 import org.opensearch.tsdb.core.mapping.Constants;
 import org.opensearch.tsdb.core.model.Labels;
 import org.opensearch.tsdb.core.utils.TimestampRangeEncoding;
@@ -65,13 +67,16 @@ public class LiveSeriesIndex implements Closeable {
     private final IndexWriter indexWriter;
     private final SnapshotDeletionPolicy snapshotDeletionPolicy;
     private final ReaderManager directoryReaderManager;
+    private final LabelStorageType labelStorageType;
 
     /**
      * Creates a new LiveSeriesIndex in the given directory.
      * @param dir parent dir for the index
+     * @param indexSettings index settings to read label storage configuration
      * @throws IOException if opening the index fails
      */
-    public LiveSeriesIndex(Path dir) throws IOException {
+    public LiveSeriesIndex(Path dir, Settings indexSettings) throws IOException {
+        this.labelStorageType = TSDBPlugin.TSDB_ENGINE_LABEL_STORAGE_TYPE.get(indexSettings);
         Path indexPath = dir.resolve(INDEX_DIR_NAME);
         if (Files.notExists(indexPath)) {
             Files.createDirectory(indexPath);
@@ -105,10 +110,18 @@ public class LiveSeriesIndex implements Closeable {
      */
     public void addSeries(Labels labels, long reference, long minTimestamp) {
         Document doc = new Document();
-        for (BytesRef labelRef : labels.toKeyValueBytesRefs()) {
+
+        BytesRef[] labelRefs = labels.toKeyValueBytesRefs();
+
+        // Add StringFields for inverted index (enables filtering/queries)
+        for (BytesRef labelRef : labelRefs) {
             doc.add(new StringField(Constants.IndexSchema.LABELS, labelRef, Field.Store.NO));
-            doc.add(new SortedSetDocValuesField(Constants.IndexSchema.LABELS, labelRef));
         }
+
+        // Add labels to DocValues using configured storage type
+        // Pass cached refs to avoid recomputing for SORTED_SET storage
+        labelStorageType.addLabelsToDocument(doc, labels, labelRefs);
+
         doc.add(new LongPoint(Constants.IndexSchema.REFERENCE, reference));
         doc.add(new NumericDocValuesField(Constants.IndexSchema.REFERENCE, reference));
 
@@ -159,7 +172,7 @@ public class LiveSeriesIndex implements Closeable {
         try {
             reader = directoryReaderManager.acquire();
             IndexSearcher searcher = new IndexSearcher(reader);
-            return searcher.search(new MatchAllDocsQuery(), new SeriesLoadingCollectorManager(callback));
+            return searcher.search(new MatchAllDocsQuery(), new SeriesLoadingCollectorManager(callback, labelStorageType));
         } catch (Exception e) {
             throw ExceptionsHelper.convertToRuntime(e);
         } finally {
@@ -195,6 +208,15 @@ public class LiveSeriesIndex implements Closeable {
      */
     public ReaderManager getDirectoryReaderManager() {
         return directoryReaderManager;
+    }
+
+    /**
+     * Gets the configured label storage type for this index.
+     *
+     * @return the label storage type (BINARY or SORTED_SET)
+     */
+    public LabelStorageType getLabelStorageType() {
+        return labelStorageType;
     }
 
     /**

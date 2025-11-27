@@ -28,9 +28,10 @@ import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.tsdb.core.chunk.ChunkIterator;
-import org.opensearch.tsdb.core.index.IndexUtils;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
 import org.opensearch.tsdb.core.mapping.Constants;
 import org.opensearch.tsdb.core.model.Labels;
+import org.opensearch.tsdb.core.reader.LabelsStorage;
 import org.opensearch.tsdb.core.reader.TSDBDocValues;
 import org.opensearch.tsdb.core.reader.TSDBLeafReader;
 
@@ -47,30 +48,32 @@ import java.util.List;
 public class ClosedChunkIndexLeafReader extends TSDBLeafReader {
 
     private final LeafReader inner;
+    private final LabelStorageType labelStorageType;
 
     /**
      * Constructs a ClosedChunkIndexLeafReader for accessing closed chunk data.
      *
      * @param inner the underlying LeafReader to wrap
+     * @param labelStorageType the storage type configured for labels
      * @throws IOException if an error occurs during initialization
      */
-    public ClosedChunkIndexLeafReader(LeafReader inner) throws IOException {
+    public ClosedChunkIndexLeafReader(LeafReader inner, LabelStorageType labelStorageType) throws IOException {
         super(inner);
         this.inner = inner;
+        this.labelStorageType = labelStorageType;
     }
 
     @Override
     public TSDBDocValues getTSDBDocValues() throws IOException {
         try {
             BinaryDocValues chunkValues = this.getBinaryDocValues(Constants.IndexSchema.CHUNK);
-            SortedSetDocValues labelsDocValues = this.getSortedSetDocValues(Constants.IndexSchema.LABELS);
             if (chunkValues == null) {
                 throw new IOException("Chunk field '" + Constants.IndexSchema.CHUNK + "'  not found in index.");
             }
-            if (labelsDocValues == null) {
-                throw new IOException("Labels field '" + Constants.IndexSchema.LABELS + "' not found in index.");
-            }
-            return new ClosedChunkIndexTSDBDocValues(chunkValues, labelsDocValues);
+
+            // Use centralized label storage retrieval
+            LabelsStorage labelsStorage = labelStorageType.getLabelsStorageOrThrow(this, "in closed chunk index");
+            return ClosedChunkIndexTSDBDocValues.create(chunkValues, labelsStorage);
         } catch (IOException e) {
             throw new IOException("Error accessing TSDBDocValues in ClosedChunkIndexLeafReader: " + e.getMessage(), e);
         }
@@ -96,7 +99,7 @@ public class ClosedChunkIndexLeafReader extends TSDBLeafReader {
 
     @Override
     public Labels labelsForDoc(int docId, TSDBDocValues tsdbDocValues) throws IOException {
-        return IndexUtils.labelsForDoc(docId, tsdbDocValues);
+        return tsdbDocValues.getLabelsStorage().readLabels(docId);
     }
 
     @Override

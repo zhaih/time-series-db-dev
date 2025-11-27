@@ -199,7 +199,13 @@ public class TSDBDirectoryReaderReferenceManagerTests extends OpenSearchTestCase
         when(closedChunkIndexManager.getReaderManagers()).thenReturn(Arrays.asList(closedReaderManager1, closedReaderManager2));
 
         // Create TSDBDirectoryReaderReferenceManager
-        referenceManager = new TSDBDirectoryReaderReferenceManager(liveReaderManager, closedChunkIndexManager, memChunkReader, shardId);
+        referenceManager = new TSDBDirectoryReaderReferenceManager(
+            liveReaderManager,
+            closedChunkIndexManager,
+            memChunkReader,
+            org.opensearch.tsdb.core.mapping.LabelStorageType.BINARY,
+            shardId
+        );
 
         // Verify initialization
         assertNotNull("Reference manager should be initialized", referenceManager);
@@ -228,7 +234,13 @@ public class TSDBDirectoryReaderReferenceManagerTests extends OpenSearchTestCase
         // Start with 2 closed indices
         when(closedChunkIndexManager.getReaderManagers()).thenReturn(Arrays.asList(closedReaderManager1, closedReaderManager2));
 
-        referenceManager = new TSDBDirectoryReaderReferenceManager(liveReaderManager, closedChunkIndexManager, memChunkReader, shardId);
+        referenceManager = new TSDBDirectoryReaderReferenceManager(
+            liveReaderManager,
+            closedChunkIndexManager,
+            memChunkReader,
+            org.opensearch.tsdb.core.mapping.LabelStorageType.BINARY,
+            shardId
+        );
 
         withAcquiredReader(reader -> {
             int initialRefCount = reader.getRefCount();
@@ -275,7 +287,13 @@ public class TSDBDirectoryReaderReferenceManagerTests extends OpenSearchTestCase
         // Start with 1 closed chunk index
         when(closedChunkIndexManager.getReaderManagers()).thenReturn(Arrays.asList(closedReaderManager1));
 
-        referenceManager = new TSDBDirectoryReaderReferenceManager(liveReaderManager, closedChunkIndexManager, memChunkReader, shardId);
+        referenceManager = new TSDBDirectoryReaderReferenceManager(
+            liveReaderManager,
+            closedChunkIndexManager,
+            memChunkReader,
+            org.opensearch.tsdb.core.mapping.LabelStorageType.BINARY,
+            shardId
+        );
 
         // Get initial reader version
         OpenSearchDirectoryReader initialReader = referenceManager.acquire();
@@ -329,7 +347,13 @@ public class TSDBDirectoryReaderReferenceManagerTests extends OpenSearchTestCase
         );
         int initialRefCountForClosedReader3 = closedReader3.getRefCount();
 
-        referenceManager = new TSDBDirectoryReaderReferenceManager(liveReaderManager, closedChunkIndexManager, memChunkReader, shardId);
+        referenceManager = new TSDBDirectoryReaderReferenceManager(
+            liveReaderManager,
+            closedChunkIndexManager,
+            memChunkReader,
+            org.opensearch.tsdb.core.mapping.LabelStorageType.BINARY,
+            shardId
+        );
         assertEquals("Ref count to closedReader3 should increase by 1", initialRefCountForClosedReader3 + 1, closedReader3.getRefCount());
 
         withAcquiredReader(reader -> {
@@ -363,7 +387,13 @@ public class TSDBDirectoryReaderReferenceManagerTests extends OpenSearchTestCase
         // Set up with 2 closed indices
         when(closedChunkIndexManager.getReaderManagers()).thenReturn(Arrays.asList(closedReaderManager1, closedReaderManager2));
 
-        referenceManager = new TSDBDirectoryReaderReferenceManager(liveReaderManager, closedChunkIndexManager, memChunkReader, shardId);
+        referenceManager = new TSDBDirectoryReaderReferenceManager(
+            liveReaderManager,
+            closedChunkIndexManager,
+            memChunkReader,
+            org.opensearch.tsdb.core.mapping.LabelStorageType.BINARY,
+            shardId
+        );
 
         int initialDocCount = withAcquiredReader(reader -> {
             TSDBDirectoryReader initialTSDBReader = (TSDBDirectoryReader) reader.getDelegate();
@@ -396,7 +426,13 @@ public class TSDBDirectoryReaderReferenceManagerTests extends OpenSearchTestCase
         // Set up with 2 closed indices
         when(closedChunkIndexManager.getReaderManagers()).thenReturn(Arrays.asList(closedReaderManager1, closedReaderManager2));
 
-        referenceManager = new TSDBDirectoryReaderReferenceManager(liveReaderManager, closedChunkIndexManager, memChunkReader, shardId);
+        referenceManager = new TSDBDirectoryReaderReferenceManager(
+            liveReaderManager,
+            closedChunkIndexManager,
+            memChunkReader,
+            org.opensearch.tsdb.core.mapping.LabelStorageType.BINARY,
+            shardId
+        );
 
         // Get initial document count
         int initialDocCount = withAcquiredReader(reader -> {
@@ -439,7 +475,13 @@ public class TSDBDirectoryReaderReferenceManagerTests extends OpenSearchTestCase
         // Start with 2 closed indices
         when(closedChunkIndexManager.getReaderManagers()).thenReturn(Arrays.asList(closedReaderManager1, closedReaderManager2));
 
-        referenceManager = new TSDBDirectoryReaderReferenceManager(liveReaderManager, closedChunkIndexManager, memChunkReader, shardId);
+        referenceManager = new TSDBDirectoryReaderReferenceManager(
+            liveReaderManager,
+            closedChunkIndexManager,
+            memChunkReader,
+            org.opensearch.tsdb.core.mapping.LabelStorageType.BINARY,
+            shardId
+        );
 
         withAcquiredReader(reader -> {
             // Just verify we can acquire the initial reader
@@ -476,7 +518,13 @@ public class TSDBDirectoryReaderReferenceManagerTests extends OpenSearchTestCase
     public void testConcurrentRefreshOperations() throws IOException, InterruptedException {
         when(closedChunkIndexManager.getReaderManagers()).thenReturn(Arrays.asList(closedReaderManager1, closedReaderManager2));
 
-        referenceManager = new TSDBDirectoryReaderReferenceManager(liveReaderManager, closedChunkIndexManager, memChunkReader, shardId);
+        referenceManager = new TSDBDirectoryReaderReferenceManager(
+            liveReaderManager,
+            closedChunkIndexManager,
+            memChunkReader,
+            org.opensearch.tsdb.core.mapping.LabelStorageType.BINARY,
+            shardId
+        );
 
         // Get initial document count
         int initialDocCount = withAcquiredReader(reader -> {
@@ -595,7 +643,13 @@ public class TSDBDirectoryReaderReferenceManagerTests extends OpenSearchTestCase
         int initialRefCountForClosedReader2 = closedReader2.getRefCount();
         int initialRefCountForLiveReader = liveReader.getRefCount();
 
-        referenceManager = new TSDBDirectoryReaderReferenceManager(liveReaderManager, closedChunkIndexManager, memChunkReader, shardId);
+        referenceManager = new TSDBDirectoryReaderReferenceManager(
+            liveReaderManager,
+            closedChunkIndexManager,
+            memChunkReader,
+            org.opensearch.tsdb.core.mapping.LabelStorageType.BINARY,
+            shardId
+        );
 
         // ref count of underlying sub readers should increase by 1
         assertEquals("Ref count to closedReader1 should increase by 1", initialRefCountForClosedReader1 + 1, closedReader1.getRefCount());

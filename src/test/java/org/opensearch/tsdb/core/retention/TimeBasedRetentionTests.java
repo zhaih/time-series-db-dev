@@ -8,6 +8,7 @@
 package org.opensearch.tsdb.core.retention;
 
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.tsdb.core.index.closed.ClosedChunkIndex;
 import org.opensearch.tsdb.core.index.closed.ClosedChunkIndexManager;
@@ -50,10 +51,10 @@ public class TimeBasedRetentionTests extends OpenSearchTestCase {
         ClosedChunkIndex.Metadata metadata3 = new ClosedChunkIndex.Metadata("block_300", TEST_BLOCK_DURATION * 2, TEST_BLOCK_DURATION * 3);
         ClosedChunkIndex.Metadata metadata4 = new ClosedChunkIndex.Metadata("block_400", TEST_BLOCK_DURATION * 4, TEST_BLOCK_DURATION * 5);
 
-        ClosedChunkIndex realIndex1 = new ClosedChunkIndex(indexPath1, metadata1, Constants.Time.DEFAULT_TIME_UNIT);
-        ClosedChunkIndex realIndex2 = new ClosedChunkIndex(indexPath2, metadata2, Constants.Time.DEFAULT_TIME_UNIT);
-        ClosedChunkIndex realIndex3 = new ClosedChunkIndex(indexPath3, metadata3, Constants.Time.DEFAULT_TIME_UNIT);
-        ClosedChunkIndex realIndex4 = new ClosedChunkIndex(indexPath4, metadata4, Constants.Time.DEFAULT_TIME_UNIT);
+        ClosedChunkIndex realIndex1 = new ClosedChunkIndex(indexPath1, metadata1, Constants.Time.DEFAULT_TIME_UNIT, Settings.EMPTY);
+        ClosedChunkIndex realIndex2 = new ClosedChunkIndex(indexPath2, metadata2, Constants.Time.DEFAULT_TIME_UNIT, Settings.EMPTY);
+        ClosedChunkIndex realIndex3 = new ClosedChunkIndex(indexPath3, metadata3, Constants.Time.DEFAULT_TIME_UNIT, Settings.EMPTY);
+        ClosedChunkIndex realIndex4 = new ClosedChunkIndex(indexPath4, metadata4, Constants.Time.DEFAULT_TIME_UNIT, Settings.EMPTY);
 
         var result = retention.plan(List.of(realIndex1, realIndex2, realIndex3, realIndex4));
 

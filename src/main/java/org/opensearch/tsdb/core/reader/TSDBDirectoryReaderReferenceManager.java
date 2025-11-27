@@ -16,6 +16,7 @@ import org.apache.lucene.store.AlreadyClosedException;
 import org.opensearch.common.SuppressForbidden;
 import org.opensearch.common.lucene.index.OpenSearchDirectoryReader;
 import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
 import org.opensearch.tsdb.core.index.closed.ClosedChunkIndexManager;
 import org.opensearch.tsdb.core.index.live.MemChunkReader;
 
@@ -36,6 +37,7 @@ public class TSDBDirectoryReaderReferenceManager extends ReferenceManager<OpenSe
     private final ReaderManager liveSeriesIndexReaderManager;
     private final ClosedChunkIndexManager closedChunkIndexManager;
     private final MemChunkReader memChunkReader;
+    private final LabelStorageType labelStorageType;
     private final ShardId shardId;
 
     private volatile List<ReaderManager> closedChunkIndexReaderManagers;
@@ -45,6 +47,7 @@ public class TSDBDirectoryReaderReferenceManager extends ReferenceManager<OpenSe
      * @param liveSeriesIndexReaderManager the reader manager for live series index
      * @param closedChunkIndexManager the manager for closed chunk indices
      * @param memChunkReader the reader for memory chunks
+     * @param labelStorageType the storage type configured for labels
      * @param shardId the shard identifier
      * @throws IOException if an I/O error occurs during initialization
      */
@@ -53,6 +56,7 @@ public class TSDBDirectoryReaderReferenceManager extends ReferenceManager<OpenSe
         ReaderManager liveSeriesIndexReaderManager,
         ClosedChunkIndexManager closedChunkIndexManager,
         MemChunkReader memChunkReader,
+        LabelStorageType labelStorageType,
         ShardId shardId
     ) throws IOException {
 
@@ -60,11 +64,12 @@ public class TSDBDirectoryReaderReferenceManager extends ReferenceManager<OpenSe
         this.closedChunkIndexManager = closedChunkIndexManager;
         this.closedChunkIndexReaderManagers = closedChunkIndexManager.getReaderManagers();
         this.memChunkReader = memChunkReader;
+        this.labelStorageType = labelStorageType;
         this.shardId = shardId;
 
         // initiate the MDR here
         this.current = OpenSearchDirectoryReader.wrap(
-            creatNewTSDBDirectoryReader(liveSeriesIndexReaderManager, closedChunkIndexManager, memChunkReader, 0L),
+            creatNewTSDBDirectoryReader(liveSeriesIndexReaderManager, closedChunkIndexManager, memChunkReader, labelStorageType, 0L),
             shardId
         );
     }
@@ -73,6 +78,7 @@ public class TSDBDirectoryReaderReferenceManager extends ReferenceManager<OpenSe
         ReaderManager liveSeriesIndexReaderManager,
         ClosedChunkIndexManager closedChunkIndexManager,
         MemChunkReader memchunkReader,
+        LabelStorageType labelStorageType,
         long currentVersion
     ) throws IOException {
         // Collect all closed chunk index reader managers
@@ -92,7 +98,7 @@ public class TSDBDirectoryReaderReferenceManager extends ReferenceManager<OpenSe
             }
 
             log.info("Refreshing closed reader managers, total readers: {}", closedReaders.size());
-            return new TSDBDirectoryReader(liveReader, closedReaders, memchunkReader, currentVersion + 1);
+            return new TSDBDirectoryReader(liveReader, closedReaders, memchunkReader, labelStorageType, currentVersion + 1);
 
         } catch (IOException | AlreadyClosedException e) {
             log.error("Error creating TSDBDirectoryReader: ", e);
@@ -135,6 +141,7 @@ public class TSDBDirectoryReaderReferenceManager extends ReferenceManager<OpenSe
                     liveSeriesIndexReaderManager,
                     closedChunkIndexManager,
                     memChunkReader,
+                    labelStorageType,
                     this.current.getVersion()
                 ),
                 shardId

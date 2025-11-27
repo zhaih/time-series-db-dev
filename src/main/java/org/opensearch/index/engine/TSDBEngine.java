@@ -1256,6 +1256,7 @@ public class TSDBEngine extends Engine {
                 head.getLiveSeriesIndex().getDirectoryReaderManager(),
                 closedChunkIndexManager,
                 head.getChunkReader(),
+                head.getLiveSeriesIndex().getLabelStorageType(),
                 shardId
             );
 

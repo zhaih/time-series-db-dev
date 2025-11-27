@@ -92,6 +92,7 @@ public abstract class TimeSeriesTestFramework extends OpenSearchIntegTestCase {
     private static final String DEFAULT_INDEX_SETTINGS_YAML = """
         index.refresh_interval: "1s"
         index.tsdb_engine.enabled: true
+        index.tsdb_engine.labels.storage_type: binary
         index.tsdb_engine.ooo_cutoff: "1d"
         index.queries.cache.enabled: false
         index.requests.cache.enable: false
@@ -101,6 +102,7 @@ public abstract class TimeSeriesTestFramework extends OpenSearchIntegTestCase {
     protected TestCase testCase;
     protected SearchQueryExecutor queryExecutor;
     protected List<IndexConfig> indexConfigs;
+    private String customIndexSettingsYaml;
 
     @Override
     public void setUp() throws Exception {
@@ -109,12 +111,26 @@ public abstract class TimeSeriesTestFramework extends OpenSearchIntegTestCase {
 
     /**
      * Loads test configuration from YAML file and initializes the test cluster.
+     * Uses default binary label storage settings.
      * This method should be called at the beginning of each test method.
      *
      * @param yamlFilePath Path to the YAML test configuration file
      * @throws Exception if configuration loading or cluster setup fails
      */
     protected void loadTestConfigurationFromFile(String yamlFilePath) throws Exception {
+        loadTestConfigurationFromFile(yamlFilePath, null);
+    }
+
+    /**
+     * Loads test configuration from YAML file and initializes the test cluster with custom settings.
+     * This method should be called at the beginning of each test method.
+     *
+     * @param yamlFilePath Path to the YAML test configuration file
+     * @param customSettingsYaml Optional custom index settings YAML to override defaults (null to use defaults)
+     * @throws Exception if configuration loading or cluster setup fails
+     */
+    protected void loadTestConfigurationFromFile(String yamlFilePath, String customSettingsYaml) throws Exception {
+        this.customIndexSettingsYaml = customSettingsYaml;
         testSetup = YamlLoader.loadTestSetup(yamlFilePath);
         testCase = YamlLoader.loadTestCase(yamlFilePath);
 
@@ -139,9 +155,10 @@ public abstract class TimeSeriesTestFramework extends OpenSearchIntegTestCase {
     private void initializeComponents() {
         // Create the index config by merging test config with framework defaults
         try {
-            // Parse the default settings YAML
+            // Parse the YAML settings template (use custom if provided, otherwise use default)
             ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
-            Map<String, Object> defaultSettings = yamlMapper.readValue(DEFAULT_INDEX_SETTINGS_YAML, Map.class);
+            String settingsYaml = customIndexSettingsYaml != null ? customIndexSettingsYaml : DEFAULT_INDEX_SETTINGS_YAML;
+            Map<String, Object> defaultSettings = yamlMapper.readValue(settingsYaml, Map.class);
 
             // Get the actual TSDB mapping from Constants (same as engine uses)
             // This ensures test mapping matches production mapping

@@ -10,7 +10,6 @@ package org.opensearch.tsdb.core.reader;
 import org.apache.lucene.document.BinaryDocValuesField;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.NumericDocValuesField;
-import org.apache.lucene.document.SortedSetDocValuesField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -31,6 +30,8 @@ import org.opensearch.tsdb.core.index.live.LiveSeriesIndexTSDBDocValues;
 import org.opensearch.tsdb.core.index.live.MemChunkReader;
 import org.opensearch.tsdb.core.index.closed.ClosedChunkIndexLeafReader;
 import org.opensearch.tsdb.core.index.closed.ClosedChunkIndexIO;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
+import org.opensearch.tsdb.core.model.ByteLabels;
 import org.opensearch.tsdb.core.model.Labels;
 
 import java.io.IOException;
@@ -38,8 +39,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.opensearch.tsdb.core.mapping.Constants.IndexSchema.LABELS;
 import static org.opensearch.tsdb.core.mapping.Constants.IndexSchema.CHUNK;
+import static org.opensearch.tsdb.core.mapping.Constants.IndexSchema.LABELS;
 import static org.opensearch.tsdb.core.mapping.Constants.IndexSchema.REFERENCE;
 
 /**
@@ -116,7 +117,7 @@ public class TSDBLeafReaderTests extends OpenSearchTestCase {
             LeafReader leafReader = context.reader();
 
             // Create ClosedChunkIndexLeafReader
-            ClosedChunkIndexLeafReader metricsReader = new ClosedChunkIndexLeafReader(leafReader);
+            ClosedChunkIndexLeafReader metricsReader = new ClosedChunkIndexLeafReader(leafReader, LabelStorageType.BINARY);
 
             // Test getTSDBDocValues()
             TSDBDocValues tsdbDocValues = metricsReader.getTSDBDocValues();
@@ -158,7 +159,7 @@ public class TSDBLeafReaderTests extends OpenSearchTestCase {
             LeafReader leafReader = context.reader();
 
             // Create LiveSeriesIndexLeafReader
-            LiveSeriesIndexLeafReader metricsReader = new LiveSeriesIndexLeafReader(leafReader, memChunkReader);
+            LiveSeriesIndexLeafReader metricsReader = new LiveSeriesIndexLeafReader(leafReader, memChunkReader, LabelStorageType.BINARY);
 
             // Test getTSDBDocValues()
             TSDBDocValues tsdbDocValues = metricsReader.getTSDBDocValues();
@@ -195,7 +196,11 @@ public class TSDBLeafReaderTests extends OpenSearchTestCase {
     public void testClosedChunkIndexLeafReaderMissingChunkField() throws IOException {
         // Create document without chunk field
         Document doc = new Document();
-        doc.add(new SortedSetDocValuesField(LABELS, new BytesRef("__name__:test_metric")));
+
+        ByteLabels labels = ByteLabels.fromStrings("__name__", "test_metric");
+        BytesRef serializedLabels = new BytesRef(labels.getRawBytes());
+        doc.add(new BinaryDocValuesField(LABELS, serializedLabels));
+
         indexWriter.addDocument(doc);
         indexWriter.commit();
 
@@ -203,7 +208,7 @@ public class TSDBLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader leafReader = context.reader();
 
-            ClosedChunkIndexLeafReader metricsReader = new ClosedChunkIndexLeafReader(leafReader);
+            ClosedChunkIndexLeafReader metricsReader = new ClosedChunkIndexLeafReader(leafReader, LabelStorageType.BINARY);
 
             // Should throw IOException when chunk field is missing
             expectThrows(IOException.class, metricsReader::getTSDBDocValues);
@@ -228,17 +233,21 @@ public class TSDBLeafReaderTests extends OpenSearchTestCase {
         // Document 1: http_requests_total{method="GET", status="200"}
         Document doc1 = new Document();
         doc1.add(new BinaryDocValuesField(CHUNK, serializedChunk1));
-        doc1.add(new SortedSetDocValuesField(LABELS, new BytesRef("__name__:http_requests_total")));
-        doc1.add(new SortedSetDocValuesField(LABELS, new BytesRef("method:GET")));
-        doc1.add(new SortedSetDocValuesField(LABELS, new BytesRef("status:200")));
+
+        ByteLabels labels1 = ByteLabels.fromStrings("__name__", "http_requests_total", "method", "GET", "status", "200");
+        BytesRef serializedLabels1 = new BytesRef(labels1.getRawBytes());
+        doc1.add(new BinaryDocValuesField(LABELS, serializedLabels1));
+
         indexWriter.addDocument(doc1);
 
         // Document 2: http_requests_total{method="POST", status="404"}
         Document doc2 = new Document();
         doc2.add(new BinaryDocValuesField(CHUNK, serializedChunk2));
-        doc2.add(new SortedSetDocValuesField(LABELS, new BytesRef("__name__:http_requests_total")));
-        doc2.add(new SortedSetDocValuesField(LABELS, new BytesRef("method:POST")));
-        doc2.add(new SortedSetDocValuesField(LABELS, new BytesRef("status:404")));
+
+        ByteLabels labels2 = ByteLabels.fromStrings("__name__", "http_requests_total", "method", "POST", "status", "404");
+        BytesRef serializedLabels2 = new BytesRef(labels2.getRawBytes());
+        doc2.add(new BinaryDocValuesField(LABELS, serializedLabels2));
+
         indexWriter.addDocument(doc2);
     }
 
@@ -246,17 +255,21 @@ public class TSDBLeafReaderTests extends OpenSearchTestCase {
         // Document 1: cpu_usage{host="server1", region="us-west"} with reference 100L
         Document doc1 = new Document();
         doc1.add(new NumericDocValuesField(REFERENCE, 100L));
-        doc1.add(new SortedSetDocValuesField(LABELS, new BytesRef("__name__:cpu_usage")));
-        doc1.add(new SortedSetDocValuesField(LABELS, new BytesRef("host:server1")));
-        doc1.add(new SortedSetDocValuesField(LABELS, new BytesRef("region:us-west")));
+
+        ByteLabels labels1 = ByteLabels.fromStrings("__name__", "cpu_usage", "host", "server1", "region", "us-west");
+        BytesRef serializedLabels1 = new BytesRef(labels1.getRawBytes());
+        doc1.add(new BinaryDocValuesField(LABELS, serializedLabels1));
+
         indexWriter.addDocument(doc1);
 
         // Document 2: memory_usage{host="server2", region="us-east"} with reference 200L
         Document doc2 = new Document();
         doc2.add(new NumericDocValuesField(REFERENCE, 200L));
-        doc2.add(new SortedSetDocValuesField(LABELS, new BytesRef("__name__:memory_usage")));
-        doc2.add(new SortedSetDocValuesField(LABELS, new BytesRef("host:server2")));
-        doc2.add(new SortedSetDocValuesField(LABELS, new BytesRef("region:us-east")));
+
+        ByteLabels labels2 = ByteLabels.fromStrings("__name__", "memory_usage", "host", "server2", "region", "us-east");
+        BytesRef serializedLabels2 = new BytesRef(labels2.getRawBytes());
+        doc2.add(new BinaryDocValuesField(LABELS, serializedLabels2));
+
         indexWriter.addDocument(doc2);
     }
 }

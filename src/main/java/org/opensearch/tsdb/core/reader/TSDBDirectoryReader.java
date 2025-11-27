@@ -16,6 +16,7 @@ import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.opensearch.common.SuppressForbidden;
 import org.opensearch.common.lucene.index.OpenSearchDirectoryReader;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
 import org.opensearch.tsdb.core.index.closed.ClosedChunkIndexLeafReader;
 import org.opensearch.tsdb.core.index.live.LiveSeriesIndexLeafReader;
 import org.opensearch.tsdb.core.index.live.MemChunkReader;
@@ -44,6 +45,7 @@ public class TSDBDirectoryReader extends DirectoryReader {
     private final DirectoryReader liveSeriesIndexDirectoryReader;
     private final List<DirectoryReader> closedChunkIndexDirectoryReaders;
     private final MemChunkReader memChunkReader;
+    private final LabelStorageType labelStorageType;
     private final long version;
 
     /**
@@ -51,6 +53,7 @@ public class TSDBDirectoryReader extends DirectoryReader {
      * @param liveReader the DirectoryReader for the live series index
      * @param closedChunkIndexReaders list of DirectoryReaders for closed chunk indices
      * @param memChunkReader reader to read MemChunk from reference, this is needed for LiveSeriesIndexLeafReader
+     * @param labelStorageType the storage type configured for labels
      * @param version the version of this reader instance. Version will be increased by 1 for each refresh
      * @throws IOException if an I/O error occurs during construction
      */
@@ -58,6 +61,7 @@ public class TSDBDirectoryReader extends DirectoryReader {
         DirectoryReader liveReader,
         List<DirectoryReader> closedChunkIndexReaders,
         MemChunkReader memChunkReader,
+        LabelStorageType labelStorageType,
         long version
     ) throws IOException {
         // We need to pass in closedChunkIndexReaders explicitly even though there is closedChunkIndexManager already.
@@ -69,11 +73,12 @@ public class TSDBDirectoryReader extends DirectoryReader {
                 Stream.concat(Stream.of(liveReader.directory()), closedChunkIndexReaders.stream().map(DirectoryReader::directory))
                     .collect(Collectors.toList())
             ),
-            buildCombinedLeaves(liveReader, closedChunkIndexReaders, memChunkReader),
+            buildCombinedLeaves(liveReader, closedChunkIndexReaders, memChunkReader, labelStorageType),
             null
         );
 
         this.memChunkReader = memChunkReader;
+        this.labelStorageType = labelStorageType;
         // Store the readers and manager
         this.liveSeriesIndexDirectoryReader = liveReader;
         this.closedChunkIndexDirectoryReaders = new ArrayList<>(closedChunkIndexReaders);
@@ -91,11 +96,29 @@ public class TSDBDirectoryReader extends DirectoryReader {
      * @param liveReader the DirectoryReader for the live series index
      * @param closedChunkIndexReaders list of DirectoryReaders for closed chunk indices
      * @param memChunkReader reader to read MemChunk from reference, this is needed for LiveSeriesIndexLeafReader
+     * @param labelStorageType the storage type configured for labels
+     * @throws IOException if an I/O error occurs during construction
+     */
+    public TSDBDirectoryReader(
+        DirectoryReader liveReader,
+        List<DirectoryReader> closedChunkIndexReaders,
+        MemChunkReader memChunkReader,
+        LabelStorageType labelStorageType
+    ) throws IOException {
+        this(liveReader, closedChunkIndexReaders, memChunkReader, labelStorageType, 0L);
+    }
+
+    /**
+     * Constructs a TSDBDirectoryReader with default label storage type (BINARY).
+     * Used by tests that don't specify a storage type.
+     * @param liveReader the DirectoryReader for the live series index
+     * @param closedChunkIndexReaders list of DirectoryReaders for closed chunk indices
+     * @param memChunkReader reader to read MemChunk from reference, this is needed for LiveSeriesIndexLeafReader
      * @throws IOException if an I/O error occurs during construction
      */
     public TSDBDirectoryReader(DirectoryReader liveReader, List<DirectoryReader> closedChunkIndexReaders, MemChunkReader memChunkReader)
         throws IOException {
-        this(liveReader, closedChunkIndexReaders, memChunkReader, 0L);
+        this(liveReader, closedChunkIndexReaders, memChunkReader, LabelStorageType.BINARY, 0L);
     }
 
     /**
@@ -104,16 +127,17 @@ public class TSDBDirectoryReader extends DirectoryReader {
     private static LeafReader[] buildCombinedLeaves(
         DirectoryReader liveDirectoryReader,
         List<DirectoryReader> closedChunkIndexDirectoryReaders,
-        MemChunkReader memChunkReader
+        MemChunkReader memChunkReader,
+        LabelStorageType labelStorageType
     ) throws IOException {
         List<LeafReader> combined = new ArrayList<>();
         for (LeafReaderContext ctx : liveDirectoryReader.leaves()) {
             // TODO : pass in already mmaped chunks
-            combined.add(new LiveSeriesIndexLeafReader(ctx.reader(), memChunkReader));
+            combined.add(new LiveSeriesIndexLeafReader(ctx.reader(), memChunkReader, labelStorageType));
         }
         for (DirectoryReader closedReader : closedChunkIndexDirectoryReaders) {
             for (LeafReaderContext ctx : closedReader.leaves()) {
-                combined.add(new ClosedChunkIndexLeafReader(ctx.reader()));
+                combined.add(new ClosedChunkIndexLeafReader(ctx.reader(), labelStorageType));
             }
         }
         return combined.toArray(new LeafReader[0]);
@@ -216,6 +240,7 @@ public class TSDBDirectoryReader extends DirectoryReader {
                 newLiveSeriesReader != null ? newLiveSeriesReader : this.liveSeriesIndexDirectoryReader,
                 newClosedChunkReaders,
                 memChunkReader,
+                this.labelStorageType,
                 version + 1
             );
 

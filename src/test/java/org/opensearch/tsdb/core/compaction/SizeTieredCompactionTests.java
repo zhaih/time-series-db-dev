@@ -331,7 +331,8 @@ public class SizeTieredCompactionTests extends OpenSearchTestCase {
         var dest = new ClosedChunkIndex(
             tempDir.resolve("blocks").resolve(dirName),
             new ClosedChunkIndex.Metadata("compacted", compactedMinTime, compactedMaxTime),
-            Constants.Time.DEFAULT_TIME_UNIT
+            Constants.Time.DEFAULT_TIME_UNIT,
+            Settings.EMPTY
         );
 
         var sourceSize = 0L;
@@ -357,7 +358,8 @@ public class SizeTieredCompactionTests extends OpenSearchTestCase {
                 Time.toTimestamp(dest.getMinTime(), Constants.Time.DEFAULT_TIME_UNIT),
                 Time.toTimestamp(dest.getMaxTime(), Constants.Time.DEFAULT_TIME_UNIT)
             ),
-            Constants.Time.DEFAULT_TIME_UNIT
+            Constants.Time.DEFAULT_TIME_UNIT,
+            Settings.EMPTY
         );
 
         assertEquals(3, TestUtils.getChunks(index).size());

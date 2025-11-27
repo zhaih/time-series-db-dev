@@ -15,7 +15,6 @@ import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.ReaderManager;
-import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause;
@@ -25,6 +24,8 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.AlreadyClosedException;
+import org.apache.lucene.util.BytesRef;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.tsdb.core.chunk.ChunkIterator;
 import org.opensearch.tsdb.core.chunk.Encoding;
@@ -54,7 +55,8 @@ public class ClosedChunkIndexTests extends OpenSearchTestCase {
             ClosedChunkIndex closedChunkIndex = new ClosedChunkIndex(
                 Path.of(tempDir.toString(), "subdir"),
                 new ClosedChunkIndex.Metadata(Path.of(tempDir.toString(), "subdir").getFileName().toString(), 0, 0),
-                DEFAULT_TIME_UNIT
+                DEFAULT_TIME_UNIT,
+                Settings.EMPTY
             );
             closedChunkIndex.close();
         } catch (IOException e) {
@@ -67,7 +69,8 @@ public class ClosedChunkIndexTests extends OpenSearchTestCase {
         ClosedChunkIndex closedChunkIndex = new ClosedChunkIndex(
             dir,
             new ClosedChunkIndex.Metadata(dir.getFileName().toString(), 0, 0),
-            DEFAULT_TIME_UNIT
+            DEFAULT_TIME_UNIT,
+            Settings.EMPTY
         );
 
         Labels labels1 = ByteLabels.fromStrings("k1", "v1", "k2", "v2");
@@ -105,7 +108,8 @@ public class ClosedChunkIndexTests extends OpenSearchTestCase {
         ClosedChunkIndex closedChunkIndex = new ClosedChunkIndex(
             tempDir,
             new ClosedChunkIndex.Metadata(tempDir.getFileName().toString(), 0, 0),
-            DEFAULT_TIME_UNIT
+            DEFAULT_TIME_UNIT,
+            Settings.EMPTY
         );
         Labels labels1 = ByteLabels.fromStrings("k1", "v1", "k2", "v2");
         closedChunkIndex.addNewChunk(labels1, buildMemChunk(5, 0, 90));
@@ -123,7 +127,8 @@ public class ClosedChunkIndexTests extends OpenSearchTestCase {
         ClosedChunkIndex reopenedIndex = new ClosedChunkIndex(
             tempDir,
             new ClosedChunkIndex.Metadata(tempDir.getFileName().toString(), 0, 0),
-            DEFAULT_TIME_UNIT
+            DEFAULT_TIME_UNIT,
+            Settings.EMPTY
         );
         Map<Labels, List<ClosedChunk>> chunks = getChunks(reopenedIndex, buildQuery("/.*/", 0, Long.MAX_VALUE));
         assertEquals("Should find both persisted chunks", 1, chunks.size());
@@ -146,7 +151,8 @@ public class ClosedChunkIndexTests extends OpenSearchTestCase {
         ClosedChunkIndex closedChunkIndex = new ClosedChunkIndex(
             tempDir,
             new ClosedChunkIndex.Metadata(tempDir.getFileName().toString(), 0, 0),
-            DEFAULT_TIME_UNIT
+            DEFAULT_TIME_UNIT,
+            Settings.EMPTY
         );
         Labels labels1 = ByteLabels.fromStrings("k1", "v1", "k2", "v2");
         Labels labels2 = ByteLabels.fromStrings("k1", "v1", "k3", "v3");
@@ -189,7 +195,8 @@ public class ClosedChunkIndexTests extends OpenSearchTestCase {
         ClosedChunkIndex closedChunkIndex = new ClosedChunkIndex(
             dir,
             new ClosedChunkIndex.Metadata(dir.getFileName().toString(), 0, 0),
-            DEFAULT_TIME_UNIT
+            DEFAULT_TIME_UNIT,
+            Settings.EMPTY
         );
         Labels labels1 = ByteLabels.fromStrings("k1", "v1", "k2", "v2");
         Labels labels2 = ByteLabels.fromStrings("k1", "v1", "k3", "v3");
@@ -230,7 +237,8 @@ public class ClosedChunkIndexTests extends OpenSearchTestCase {
         ClosedChunkIndex closedChunkIndex = new ClosedChunkIndex(
             dir,
             new ClosedChunkIndex.Metadata(dir.getFileName().toString(), 0, 0),
-            DEFAULT_TIME_UNIT
+            DEFAULT_TIME_UNIT,
+            Settings.EMPTY
         );
 
         // Create labels with different hash values to test sorting
@@ -370,8 +378,8 @@ public class ClosedChunkIndexTests extends OpenSearchTestCase {
 
             for (LeafReaderContext leaf : closedReader.leaves()) {
                 BinaryDocValues chunkDocValues = leaf.reader().getBinaryDocValues(Constants.IndexSchema.CHUNK);
-                SortedSetDocValues labelsSetDocValues = leaf.reader().getSortedSetDocValues(Constants.IndexSchema.LABELS);
-                if (chunkDocValues == null || labelsSetDocValues == null) {
+                BinaryDocValues labelsBinaryDocValues = leaf.reader().getBinaryDocValues(Constants.IndexSchema.LABELS);
+                if (chunkDocValues == null || labelsBinaryDocValues == null) {
                     continue;
                 }
                 int docBase = leaf.docBase;
@@ -379,12 +387,11 @@ public class ClosedChunkIndexTests extends OpenSearchTestCase {
                     int docId = sd.doc;
                     if (docId >= docBase && docId < docBase + leaf.reader().maxDoc()) {
                         int localDocId = docId - docBase;
-                        if (chunkDocValues.advanceExact(localDocId) && labelsSetDocValues.advanceExact(localDocId)) {
-                            List<String> labelsList = new ArrayList<>();
-                            for (int i = 0; i < labelsSetDocValues.docValueCount(); i++) {
-                                labelsList.add(labelsSetDocValues.lookupOrd(labelsSetDocValues.nextOrd()).utf8ToString());
-                            }
-                            Labels labels = ByteLabels.fromSortedKeyValuePairs(labelsList);
+                        if (chunkDocValues.advanceExact(localDocId) && labelsBinaryDocValues.advanceExact(localDocId)) {
+                            BytesRef serialized = labelsBinaryDocValues.binaryValue();
+                            byte[] copy = new byte[serialized.length];
+                            System.arraycopy(serialized.bytes, serialized.offset, copy, 0, serialized.length);
+                            Labels labels = ByteLabels.fromRawBytes(copy);
                             ClosedChunk chunk = ClosedChunkIndexIO.getClosedChunkFromSerialized(chunkDocValues.binaryValue());
                             chunks.computeIfAbsent(labels, k -> new ArrayList<>()).add(chunk);
                         }
@@ -431,7 +438,8 @@ public class ClosedChunkIndexTests extends OpenSearchTestCase {
             new ClosedChunkIndex(
                 fileInsteadOfDir,
                 new ClosedChunkIndex.Metadata(fileInsteadOfDir.getFileName().toString(), 0, 0),
-                DEFAULT_TIME_UNIT
+                DEFAULT_TIME_UNIT,
+                Settings.EMPTY
             );
         });
     }
@@ -441,7 +449,8 @@ public class ClosedChunkIndexTests extends OpenSearchTestCase {
         ClosedChunkIndex closedChunkIndex = new ClosedChunkIndex(
             dir,
             new ClosedChunkIndex.Metadata(dir.getFileName().toString(), 0, 0),
-            DEFAULT_TIME_UNIT
+            DEFAULT_TIME_UNIT,
+            Settings.EMPTY
         );
 
         // Close the index first to make forceMerge throw IOException

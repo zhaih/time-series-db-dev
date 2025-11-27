@@ -26,6 +26,7 @@ Create index with replicas:
 curl -X PUT -H 'Content-Type: application/json' http://localhost:9200/my-index --data '{
   "settings": {
     "index.tsdb_engine.enabled":true,
+    "index.tsdb_engine.labels.storage_type": "binary",
     "index.number_of_shards": 1,
     "index.number_of_replicas": 1,
     "index.store.factory": "tsdb_store",

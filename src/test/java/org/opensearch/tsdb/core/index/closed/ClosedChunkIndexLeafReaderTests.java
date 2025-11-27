@@ -9,14 +9,12 @@ package org.opensearch.tsdb.core.index.closed;
 
 import org.apache.lucene.document.BinaryDocValuesField;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.SortedSetDocValuesField;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
@@ -27,14 +25,17 @@ import org.opensearch.tsdb.core.chunk.ChunkIterator;
 import org.opensearch.tsdb.core.chunk.Encoding;
 import org.opensearch.tsdb.core.chunk.XORChunk;
 import org.opensearch.tsdb.core.head.MemChunk;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
+import org.opensearch.tsdb.core.model.ByteLabels;
 import org.opensearch.tsdb.core.model.Labels;
 import org.opensearch.tsdb.core.reader.TSDBDocValues;
 
 import java.io.IOException;
 import java.util.List;
 
-import static org.opensearch.tsdb.core.mapping.Constants.IndexSchema.LABELS;
+import org.opensearch.tsdb.core.mapping.Constants;
 import static org.opensearch.tsdb.core.mapping.Constants.IndexSchema.CHUNK;
+import static org.opensearch.tsdb.core.mapping.Constants.IndexSchema.LABELS;
 
 public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
 
@@ -68,7 +69,7 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader);
+            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader, LabelStorageType.BINARY);
 
             assertNotNull("Reader should not be null", leafReader);
             assertEquals("numDocs should match", innerReader.numDocs(), leafReader.numDocs());
@@ -86,17 +87,17 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader);
+            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader, LabelStorageType.BINARY);
             TSDBDocValues tsdbDocValues = leafReader.getTSDBDocValues();
 
             assertNotNull("tsdbDocValues should not be null", tsdbDocValues);
             assertTrue("Should be ClosedChunkIndexTSDBDocValues", tsdbDocValues instanceof ClosedChunkIndexTSDBDocValues);
 
             BinaryDocValues chunkDocValues = tsdbDocValues.getChunkDocValues();
-            SortedSetDocValues labelsDocValues = tsdbDocValues.getLabelsDocValues();
+            BinaryDocValues labelsBinaryDocValues = tsdbDocValues.getLabelsBinaryDocValues();
 
             assertNotNull("ChunkDocValues should not be null", chunkDocValues);
-            assertNotNull("LabelsDocValues should not be null", labelsDocValues);
+            assertNotNull("LabelsBinaryDocValues should not be null", labelsBinaryDocValues);
 
             expectThrows(UnsupportedOperationException.class, tsdbDocValues::getChunkRefDocValues);
         }
@@ -110,7 +111,7 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader);
+            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader, LabelStorageType.BINARY);
             TSDBDocValues tsdbDocValues = leafReader.getTSDBDocValues();
 
             List<ChunkIterator> chunks = leafReader.chunksForDoc(0, tsdbDocValues);
@@ -137,7 +138,7 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader);
+            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader, LabelStorageType.BINARY);
             TSDBDocValues tsdbDocValues = leafReader.getTSDBDocValues();
 
             Labels labels = leafReader.labelsForDoc(0, tsdbDocValues);
@@ -152,7 +153,11 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
         // Create document with empty chunk data
         Document doc = new Document();
         doc.add(new BinaryDocValuesField(CHUNK, new BytesRef(new byte[0])));
-        doc.add(new SortedSetDocValuesField(LABELS, new BytesRef("__name__:empty_metric")));
+
+        ByteLabels labels = ByteLabels.fromStrings("__name__", "empty_metric");
+        BytesRef serializedLabels = new BytesRef(labels.getRawBytes());
+        doc.add(new BinaryDocValuesField(LABELS, serializedLabels));
+
         indexWriter.addDocument(doc);
         indexWriter.commit();
 
@@ -160,7 +165,7 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader);
+            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader, LabelStorageType.BINARY);
             TSDBDocValues tsdbDocValues = leafReader.getTSDBDocValues();
 
             List<ChunkIterator> chunks = leafReader.chunksForDoc(0, tsdbDocValues);
@@ -173,7 +178,11 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
     public void testMissingChunkField() throws IOException {
         // Create document without chunk field
         Document doc = new Document();
-        doc.add(new SortedSetDocValuesField(LABELS, new BytesRef("__name__:test_metric")));
+
+        ByteLabels labels = ByteLabels.fromStrings("__name__", "test_metric");
+        BytesRef serializedLabels = new BytesRef(labels.getRawBytes());
+        doc.add(new BinaryDocValuesField(LABELS, serializedLabels));
+
         indexWriter.addDocument(doc);
         indexWriter.commit();
 
@@ -181,7 +190,7 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader);
+            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader, LabelStorageType.BINARY);
 
             IOException exception = expectThrows(IOException.class, leafReader::getTSDBDocValues);
             assertTrue("Should mention chunk field missing", exception.getMessage().contains("Chunk field '" + CHUNK + "'"));
@@ -205,10 +214,10 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader);
+            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader, LabelStorageType.BINARY);
 
             IOException exception = expectThrows(IOException.class, leafReader::getTSDBDocValues);
-            assertTrue("Should mention labels field missing", exception.getMessage().contains("Labels field '" + LABELS + "'"));
+            assertTrue("Should mention labels field missing", exception.getMessage().contains("Labels field"));
         }
     }
 
@@ -220,7 +229,7 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
             LeafReaderContext context = reader.leaves().get(0);
             LeafReader innerReader = context.reader();
 
-            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader);
+            ClosedChunkIndexLeafReader leafReader = new ClosedChunkIndexLeafReader(innerReader, LabelStorageType.BINARY);
 
             // Test core delegated methods
             assertSame("getCoreCacheHelper should delegate", innerReader.getCoreCacheHelper(), leafReader.getCoreCacheHelper());
@@ -246,9 +255,9 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
                 leafReader.getBinaryDocValues(CHUNK) != null
             );
             assertEquals(
-                "getSortedSetDocValues should delegate",
-                innerReader.getSortedSetDocValues(LABELS) != null,
-                leafReader.getSortedSetDocValues(LABELS) != null
+                "getBinaryDocValues should delegate for labels",
+                innerReader.getBinaryDocValues(Constants.IndexSchema.LABELS) != null,
+                leafReader.getBinaryDocValues(Constants.IndexSchema.LABELS) != null
             );
 
             // Test getNumericDocValues() delegation
@@ -318,8 +327,8 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
             // Test with existing chunk field
             assertNotNull("getBinaryDocValues should work with chunk field", leafReader.getBinaryDocValues(CHUNK));
 
-            // Test with existing labels field
-            assertNotNull("getSortedSetDocValues should work with labels field", leafReader.getSortedSetDocValues(LABELS));
+            // Test with existing labels_binary field
+            assertNotNull("getBinaryDocValues should work with labels field", leafReader.getBinaryDocValues(Constants.IndexSchema.LABELS));
 
             // Test vector operations delegation
             assertNull(
@@ -379,8 +388,12 @@ public class ClosedChunkIndexLeafReaderTests extends OpenSearchTestCase {
 
         Document doc = new Document();
         doc.add(new BinaryDocValuesField(CHUNK, serializedChunk));
-        doc.add(new SortedSetDocValuesField(LABELS, new BytesRef("__name__:test_metric")));
-        doc.add(new SortedSetDocValuesField(LABELS, new BytesRef("host:server1")));
+
+        // Create labels and serialize to BinaryDocValues
+        ByteLabels labels = ByteLabels.fromStrings("__name__", "test_metric", "host", "server1");
+        BytesRef serializedLabels = new BytesRef(labels.getRawBytes());
+        doc.add(new BinaryDocValuesField(LABELS, serializedLabels));
+
         indexWriter.addDocument(doc);
     }
 }

@@ -24,6 +24,7 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.opensearch.index.engine.TSDBTragicException;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.tsdb.core.head.MemSeries;
 import org.opensearch.tsdb.core.mapping.Constants;
@@ -45,7 +46,7 @@ import java.util.Set;
 public class LiveSeriesIndexTests extends OpenSearchTestCase {
 
     public void testAddAndRead() throws IOException {
-        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testAddAndRead"));
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testAddAndRead"), Settings.EMPTY);
         liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1", "k2", "v2"), 0L, 100L);
         liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1", "k3", "v3"), 10L, 100L);
         liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1", "k4", "v4"), 20L, 200L);
@@ -81,7 +82,7 @@ public class LiveSeriesIndexTests extends OpenSearchTestCase {
     }
 
     public void testLoadSeries() throws IOException {
-        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testLoadSeries"));
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testLoadSeries"), Settings.EMPTY);
         Labels labels1 = ByteLabels.fromStrings("k1", "v1", "k2", "v2");
         Labels labels2 = ByteLabels.fromStrings("k1", "v1", "k3", "v3");
         Labels labels3 = ByteLabels.fromStrings("k1", "v1", "k4", "v4");
@@ -122,13 +123,13 @@ public class LiveSeriesIndexTests extends OpenSearchTestCase {
 
     public void testCommit() throws IOException {
         Path tempDir = createTempDir("testCommit");
-        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(tempDir);
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(tempDir, Settings.EMPTY);
         liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1", "k2", "v2"), 0L, 100L);
         liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1", "k3", "v3"), 10L, 200L);
         liveSeriesIndex.commit();
         liveSeriesIndex.close();
 
-        LiveSeriesIndex reopenedIndex = new LiveSeriesIndex(tempDir);
+        LiveSeriesIndex reopenedIndex = new LiveSeriesIndex(tempDir, Settings.EMPTY);
 
         List<Long> refs = getReferences(reopenedIndex, buildQuery("/.*/", 0, Long.MAX_VALUE));
         assertEquals("Should find both persisted series", 2, refs.size());
@@ -140,7 +141,7 @@ public class LiveSeriesIndexTests extends OpenSearchTestCase {
 
     public void testCommitWithMetadataAndLoad() throws IOException {
         Path tempDir = createTempDir("testCommitWithMetadataAndLoad");
-        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(tempDir);
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(tempDir, Settings.EMPTY);
         MemSeries series1 = new MemSeries(1L, ByteLabels.fromStrings("k1", "v1", "k2", "v2"));
         MemSeries series2 = new MemSeries(2L, ByteLabels.fromStrings("k1", "v1", "k2", "v3"));
         series1.setMaxSeqNo(100);
@@ -151,7 +152,7 @@ public class LiveSeriesIndexTests extends OpenSearchTestCase {
         liveSeriesIndex.commitWithMetadata(List.of(series1, series2));
         liveSeriesIndex.close();
 
-        LiveSeriesIndex reopenedIndex = new LiveSeriesIndex(tempDir);
+        LiveSeriesIndex reopenedIndex = new LiveSeriesIndex(tempDir, Settings.EMPTY);
         List<Long> refs = getReferences(reopenedIndex, buildQuery("/.*/", 0, Long.MAX_VALUE)); // ensure reader is refreshed
         assertEquals("Should find both persisted series", 2, refs.size());
         assertTrue("Should contain reference 1", refs.contains(1L));
@@ -170,7 +171,7 @@ public class LiveSeriesIndexTests extends OpenSearchTestCase {
 
     public void testSnapshotDeletionPolicy() throws IOException {
         Path tempDir = createTempDir("testSnapshotDeletionPolicy");
-        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(tempDir);
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(tempDir, Settings.EMPTY);
         liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1", "k2", "v2"), 0L, 100L);
         liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1", "k3", "v3"), 10L, 200L);
         liveSeriesIndex.commit();
@@ -269,11 +270,11 @@ public class LiveSeriesIndexTests extends OpenSearchTestCase {
         Path fileInsteadOfDir = invalidDir.resolve("subdir");
         Files.createFile(fileInsteadOfDir);
 
-        expectThrows(FileSystemException.class, () -> { new LiveSeriesIndex(fileInsteadOfDir); });
+        expectThrows(FileSystemException.class, () -> { new LiveSeriesIndex(fileInsteadOfDir, Settings.EMPTY); });
     }
 
     public void testAddSeriesIOException() throws IOException {
-        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testAddSeriesIOException"));
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testAddSeriesIOException"), Settings.EMPTY);
 
         // Close the index first to make addSeries throw IOException
         liveSeriesIndex.close();
@@ -282,7 +283,7 @@ public class LiveSeriesIndexTests extends OpenSearchTestCase {
     }
 
     public void testLoadSeriesFromIndexIOException() throws IOException {
-        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testLoadSeriesFromIndexIOException"));
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testLoadSeriesFromIndexIOException"), Settings.EMPTY);
 
         // Close the index first to make loadSeriesFromIndex throw IOException
         liveSeriesIndex.close();
@@ -293,7 +294,7 @@ public class LiveSeriesIndexTests extends OpenSearchTestCase {
     }
 
     public void testCommitWithMetadataCommitException() throws IOException {
-        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testCommitWithMetadataCommitException"));
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testCommitWithMetadataCommitException"), Settings.EMPTY);
 
         // Add some data
         liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1"), 0L, 100L);
@@ -311,12 +312,162 @@ public class LiveSeriesIndexTests extends OpenSearchTestCase {
      * Test that TSDBTragicException is thrown when IndexWriter is closed.
      */
     public void testAddSeriesThrowsTragicException() throws IOException {
-        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testTragicException"));
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testTragicException"), Settings.EMPTY);
 
         // Close the index - this makes indexWriter.isOpen() == false
         liveSeriesIndex.close();
 
         // addSeries should throw TSDBTragicException
         assertThrows(TSDBTragicException.class, () -> liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1"), 0L, 100L));
+    }
+
+    /**
+     * Test loadSeriesFromIndex with BINARY storage type (default).
+     * This tests the SeriesLoadingCollector's BINARY code path.
+     */
+    public void testLoadSeriesWithBinaryStorage() throws IOException {
+        Settings settings = Settings.builder().put("index.tsdb_engine.labels.storage_type", "binary").build();
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testLoadSeriesBinary"), settings);
+
+        Labels labels1 = ByteLabels.fromStrings("k1", "v1", "k2", "v2");
+        Labels labels2 = ByteLabels.fromStrings("k1", "v1", "k3", "v3");
+        Labels labels3 = ByteLabels.fromStrings("k1", "v1", "k4", "v4");
+
+        liveSeriesIndex.addSeries(labels1, 100L, 40L);
+        liveSeriesIndex.addSeries(labels2, 200L, 50L);
+        liveSeriesIndex.addSeries(labels3, 300L, 60L);
+
+        liveSeriesIndex.getDirectoryReaderManager().maybeRefreshBlocking();
+
+        // Verify that loadSeriesFromIndex correctly loads all series with BINARY storage
+        SeriesLoader mockSeriesLoader = new SeriesLoader() {
+            private final Map<Long, Labels> expectedLabels = Map.of(100L, labels1, 200L, labels2, 300L, labels3);
+            private final Set<Long> processedReferences = new HashSet<>();
+
+            @Override
+            public void load(MemSeries series) {
+                long ref = series.getReference();
+                if (!processedReferences.add(ref)) {
+                    fail("Duplicate series reference: " + ref);
+                }
+
+                Labels expectedLabel = expectedLabels.get(ref);
+                assertNotNull("Unexpected reference: " + ref, expectedLabel);
+                assertEquals("Labels should match for reference " + ref, expectedLabel, series.getLabels());
+            }
+        };
+
+        long maxRef = liveSeriesIndex.loadSeriesFromIndex(mockSeriesLoader);
+        assertEquals("Max reference should be 300", 300L, maxRef);
+        liveSeriesIndex.close();
+    }
+
+    /**
+     * Test loadSeriesFromIndex with SORTED_SET storage type.
+     * This tests the SeriesLoadingCollector's SORTED_SET code path.
+     */
+    public void testLoadSeriesWithSortedSetStorage() throws IOException {
+        Settings settings = Settings.builder().put("index.tsdb_engine.labels.storage_type", "sorted_set").build();
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testLoadSeriesSortedSet"), settings);
+
+        Labels labels1 = ByteLabels.fromStrings("k1", "v1", "k2", "v2");
+        Labels labels2 = ByteLabels.fromStrings("k1", "v1", "k3", "v3");
+        Labels labels3 = ByteLabels.fromStrings("k1", "v1", "k4", "v4");
+
+        liveSeriesIndex.addSeries(labels1, 100L, 40L);
+        liveSeriesIndex.addSeries(labels2, 200L, 50L);
+        liveSeriesIndex.addSeries(labels3, 300L, 60L);
+
+        liveSeriesIndex.getDirectoryReaderManager().maybeRefreshBlocking();
+
+        // Verify that loadSeriesFromIndex correctly loads all series with SORTED_SET storage
+        SeriesLoader mockSeriesLoader = new SeriesLoader() {
+            private final Map<Long, Labels> expectedLabels = Map.of(100L, labels1, 200L, labels2, 300L, labels3);
+            private final Set<Long> processedReferences = new HashSet<>();
+
+            @Override
+            public void load(MemSeries series) {
+                long ref = series.getReference();
+                if (!processedReferences.add(ref)) {
+                    fail("Duplicate series reference: " + ref);
+                }
+
+                Labels expectedLabel = expectedLabels.get(ref);
+                assertNotNull("Unexpected reference: " + ref, expectedLabel);
+                assertEquals("Labels should match for reference " + ref, expectedLabel, series.getLabels());
+            }
+        };
+
+        long maxRef = liveSeriesIndex.loadSeriesFromIndex(mockSeriesLoader);
+        assertEquals("Max reference should be 300", 300L, maxRef);
+        liveSeriesIndex.close();
+    }
+
+    /**
+     * Test loadSeriesFromIndex with SORTED_SET storage type when index is empty.
+     * This tests the edge case where advanceExact returns false in SORTED_SET path.
+     */
+    public void testLoadSeriesWithSortedSetStorageEmpty() throws IOException {
+        Settings settings = Settings.builder().put("index.tsdb_engine.labels.storage_type", "sorted_set").build();
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testLoadSeriesSortedSetEmpty"), settings);
+
+        liveSeriesIndex.getDirectoryReaderManager().maybeRefreshBlocking();
+
+        // Verify that loadSeriesFromIndex handles empty index correctly
+        SeriesLoader mockSeriesLoader = new SeriesLoader() {
+            @Override
+            public void load(MemSeries series) {
+                fail("Should not be called for empty index");
+            }
+        };
+
+        long maxRef = liveSeriesIndex.loadSeriesFromIndex(mockSeriesLoader);
+        assertEquals("Max reference should be 0 for empty index", 0L, maxRef);
+        liveSeriesIndex.close();
+    }
+
+    /**
+     * Test addAndRead with SORTED_SET storage type.
+     */
+    public void testAddAndReadWithSortedSetStorage() throws IOException {
+        Settings settings = Settings.builder().put("index.tsdb_engine.labels.storage_type", "sorted_set").build();
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(createTempDir("testAddReadSortedSet"), settings);
+
+        liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1", "k2", "v2"), 0L, 100L);
+        liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1", "k3", "v3"), 10L, 100L);
+        liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1", "k4", "v4"), 20L, 200L);
+
+        liveSeriesIndex.getDirectoryReaderManager().maybeRefreshBlocking();
+
+        List<Long> refs = getReferences(liveSeriesIndex, buildQuery("/k1:v1/", 50, Long.MAX_VALUE));
+        assertEquals(List.of(0L, 10L, 20L), refs);
+
+        refs = getReferences(liveSeriesIndex, buildQuery("/k4:.*/", 50, Long.MAX_VALUE));
+        assertEquals(List.of(20L), refs);
+
+        liveSeriesIndex.close();
+    }
+
+    /**
+     * Test commit and reload with SORTED_SET storage type.
+     */
+    public void testCommitWithSortedSetStorage() throws IOException {
+        Settings settings = Settings.builder().put("index.tsdb_engine.labels.storage_type", "sorted_set").build();
+        Path tempDir = createTempDir("testCommitSortedSet");
+        LiveSeriesIndex liveSeriesIndex = new LiveSeriesIndex(tempDir, settings);
+
+        liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1", "k2", "v2"), 0L, 100L);
+        liveSeriesIndex.addSeries(ByteLabels.fromStrings("k1", "v1", "k3", "v3"), 10L, 200L);
+        liveSeriesIndex.commit();
+        liveSeriesIndex.close();
+
+        LiveSeriesIndex reopenedIndex = new LiveSeriesIndex(tempDir, settings);
+
+        List<Long> refs = getReferences(reopenedIndex, buildQuery("/.*/", 0, Long.MAX_VALUE));
+        assertEquals("Should find both persisted series", 2, refs.size());
+        assertTrue("Should contain reference 0", refs.contains(0L));
+        assertTrue("Should contain reference 10", refs.contains(10L));
+
+        reopenedIndex.close();
     }
 }

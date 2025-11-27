@@ -37,6 +37,7 @@ import org.opensearch.tsdb.core.chunk.Encoding;
 import org.opensearch.tsdb.core.head.MemChunk;
 import org.opensearch.tsdb.core.index.closed.ClosedChunkIndexIO;
 import org.opensearch.tsdb.core.index.closed.ClosedChunkIndexManager;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
 import org.opensearch.tsdb.core.index.live.MemChunkReader;
 import org.junit.After;
 import org.junit.Before;
@@ -289,6 +290,7 @@ public class TSDBDirectoryReaderTests extends OpenSearchTestCase {
             liveReader,
             Arrays.asList(closedReader1, closedReader2, closedReader3),
             memChunkReader,
+            LabelStorageType.BINARY,
             5L
         );
         assertEquals("Version should match constructor parameter", 5L, versionedReader.getVersion());

@@ -62,6 +62,7 @@ import org.opensearch.search.lookup.SearchLookup;
 import org.opensearch.tsdb.TSDBPlugin;
 import org.opensearch.tsdb.core.chunk.Encoding;
 import org.opensearch.tsdb.core.head.MemChunk;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
 import org.opensearch.tsdb.core.index.closed.ClosedChunkIndex;
 import org.opensearch.tsdb.core.index.closed.ClosedChunkIndexLeafReader;
 import org.opensearch.tsdb.core.model.ByteLabels;
@@ -124,7 +125,8 @@ public abstract class BaseTSDBBenchmark {
         closedChunkIndex = new ClosedChunkIndex(
             tempDir,
             new ClosedChunkIndex.Metadata(tempDir.getFileName().toString(), 0, 0),
-            TimeUnit.MILLISECONDS
+            TimeUnit.MILLISECONDS,
+            Settings.EMPTY
         );
         indexTimeSeries(closedChunkIndex, cardinality, sampleCount, labelCount);
         closedChunkIndex.commitWithMetadata(List.of());
@@ -395,7 +397,7 @@ public abstract class BaseTSDBBenchmark {
                 @Override
                 public LeafReader wrap(LeafReader reader) {
                     try {
-                        return new ClosedChunkIndexLeafReader(reader);
+                        return new ClosedChunkIndexLeafReader(reader, LabelStorageType.BINARY);
                     } catch (IOException e) {
                         throw new RuntimeException("Failed to wrap LeafReader", e);
                     }

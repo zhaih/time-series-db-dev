@@ -144,12 +144,14 @@ public class ClosedChunkIndexManagerTests extends OpenSearchTestCase {
         ClosedChunkIndex first = new ClosedChunkIndex(
             blockDirs.get(0),
             new ClosedChunkIndex.Metadata(blockDirs.get(0).getFileName().toString(), 0, 7200000),
-            resolution
+            resolution,
+            Settings.EMPTY
         );
         ClosedChunkIndex second = new ClosedChunkIndex(
             blockDirs.get(1),
             new ClosedChunkIndex.Metadata(blockDirs.get(1).getFileName().toString(), 7200000, 14400000),
-            resolution
+            resolution,
+            Settings.EMPTY
         );
 
         List<ClosedChunk> firstChunks = TestUtils.getChunks(first);
@@ -447,13 +449,15 @@ public class ClosedChunkIndexManagerTests extends OpenSearchTestCase {
         ClosedChunkIndex first = new ClosedChunkIndex(
             firstBlock,
             new ClosedChunkIndex.Metadata(firstBlock.getFileName().toString(), 7200000, 21600000),
-            resolution
+            resolution,
+            Settings.EMPTY
         );
 
         ClosedChunkIndex second = new ClosedChunkIndex(
             secondBlock,
             new ClosedChunkIndex.Metadata(secondBlock.getFileName().toString(), 21600000, 28800000),
-            resolution
+            resolution,
+            Settings.EMPTY
         );
 
         assertEquals(3, TestUtils.getChunks(first).size());

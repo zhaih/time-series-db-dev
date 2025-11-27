@@ -14,7 +14,6 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.LongRange;
 import org.apache.lucene.document.NumericDocValuesField;
-import org.apache.lucene.document.SortedSetDocValuesField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.DirectoryReader;
@@ -33,13 +32,16 @@ import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.io.IOUtils;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.common.io.stream.BytesStreamInput;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.tsdb.TSDBPlugin;
 import org.opensearch.tsdb.core.head.MemChunk;
 import org.opensearch.tsdb.core.head.MemSeries;
+import org.opensearch.tsdb.core.mapping.LabelStorageType;
 import org.opensearch.tsdb.core.mapping.Constants;
 import org.opensearch.tsdb.core.model.Labels;
 import org.opensearch.tsdb.core.utils.TimestampRangeEncoding;
@@ -71,6 +73,7 @@ public class ClosedChunkIndex implements Closeable {
     private final Metadata metadata;
     private final Path path;
     private final TimeUnit resolution;
+    private final LabelStorageType labelStorageType;
     private IndexWriter indexWriter;
 
     /**
@@ -79,10 +82,11 @@ public class ClosedChunkIndex implements Closeable {
      * @param dir      the directory to store the index
      * @param metadata metadata of the index
      * @param resolution resolution of the samples
+     * @param indexSettings index settings to read label storage configuration
      * @throws IOException if there is an error creating the index
      */
-    public ClosedChunkIndex(Path dir, Metadata metadata, TimeUnit resolution) throws IOException {
-        this(dir, metadata, resolution, new ConcurrentMergeScheduler());
+    public ClosedChunkIndex(Path dir, Metadata metadata, TimeUnit resolution, Settings indexSettings) throws IOException {
+        this(dir, metadata, resolution, new ConcurrentMergeScheduler(), indexSettings);
     }
 
     /**
@@ -94,7 +98,9 @@ public class ClosedChunkIndex implements Closeable {
      * @param scheduler  merge scheduler to use.
      * @throws IOException if there is an error creating the index
      */
-    public ClosedChunkIndex(Path dir, Metadata metadata, TimeUnit resolution, MergeScheduler scheduler) throws IOException {
+    public ClosedChunkIndex(Path dir, Metadata metadata, TimeUnit resolution, MergeScheduler scheduler, Settings indexSettings)
+        throws IOException {
+        this.labelStorageType = TSDBPlugin.TSDB_ENGINE_LABEL_STORAGE_TYPE.get(indexSettings);
         if (!Files.exists(dir)) {
             Files.createDirectories(dir);
         }
@@ -135,10 +141,17 @@ public class ClosedChunkIndex implements Closeable {
     public void addNewChunk(Labels labels, MemChunk memChunk) throws IOException {
         Document doc = new Document();
         doc.add(new NumericDocValuesField(Constants.IndexSchema.LABELS_HASH, labels.stableHash()));
-        for (BytesRef labelRef : labels.toKeyValueBytesRefs()) {
+
+        BytesRef[] labelRefs = labels.toKeyValueBytesRefs();
+
+        // Add StringFields for inverted index (enables filtering/queries)
+        for (BytesRef labelRef : labelRefs) {
             doc.add(new StringField(Constants.IndexSchema.LABELS, labelRef, Field.Store.NO));
-            doc.add(new SortedSetDocValuesField(Constants.IndexSchema.LABELS, labelRef));
         }
+
+        // Add labels to DocValues using configured storage type
+        labelStorageType.addLabelsToDocument(doc, labels, labelRefs);
+
         doc.add(
             new BinaryDocValuesField(Constants.IndexSchema.CHUNK, ClosedChunkIndexIO.serializeChunk(memChunk.getCompoundChunk().toChunk()))
         );

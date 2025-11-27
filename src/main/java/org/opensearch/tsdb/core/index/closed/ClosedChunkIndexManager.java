@@ -101,6 +101,7 @@ public class ClosedChunkIndexManager implements Closeable {
     private final Set<ClosedChunkIndex> pendingClosureIndexes;
     private final Scheduler.Cancellable mgmtTaskScheduler;
     private final TimeUnit resolution;
+    private final Settings indexSettings;
     private Instant lastRetentionTime;
     private Instant lastCompactionTime;
 
@@ -139,6 +140,7 @@ public class ClosedChunkIndexManager implements Closeable {
         this.log = Loggers.getLogger(ClosedChunkIndexManager.class, shardId);
         this.lastRetentionTime = Instant.now();
         this.lastCompactionTime = Instant.now();
+        this.indexSettings = settings;
         this.resolution = TimeUnit.valueOf(TSDBPlugin.TSDB_ENGINE_TIME_UNIT.get(settings));
         closedChunkIndexMap = new TreeMap<>();
         pendingChunksToSeriesMMapTimestamps = new HashMap<>();
@@ -277,12 +279,18 @@ public class ClosedChunkIndexManager implements Closeable {
         var metadata = new ClosedChunkIndex.Metadata(dirName, minTime, maxTime);
 
         // Create an index with serial scheduler to make it less compute expensive.
-        ClosedChunkIndex newIndex = new ClosedChunkIndex(dir.resolve(dirName), metadata, resolution, new SerialMergeScheduler());
+        ClosedChunkIndex newIndex = new ClosedChunkIndex(
+            dir.resolve(dirName),
+            metadata,
+            resolution,
+            new SerialMergeScheduler(),
+            indexSettings
+        );
         compaction.compact(plan, newIndex);
 
         // Close the index and re-create with the default scheduler.
         newIndex.close();
-        newIndex = new ClosedChunkIndex(dir.resolve(dirName), metadata, resolution);
+        newIndex = new ClosedChunkIndex(dir.resolve(dirName), metadata, resolution, indexSettings);
         log.info(
             "Compaction took: {} s, original size: {} bytes, compacted size: {} bytes",
             Duration.between(start, Instant.now()).toSeconds(),
@@ -412,7 +420,7 @@ public class ClosedChunkIndexManager implements Closeable {
                 for (ClosedChunkIndex.Metadata indexMetadata : indexMetadataList) {
                     closedChunkIndexMap.put(
                         indexMetadata.maxTimestamp(),
-                        new ClosedChunkIndex(dir.resolve(indexMetadata.directoryName()), indexMetadata, resolution)
+                        new ClosedChunkIndex(dir.resolve(indexMetadata.directoryName()), indexMetadata, resolution, indexSettings)
                     );
                 }
             }
@@ -521,7 +529,7 @@ public class ClosedChunkIndexManager implements Closeable {
 
         lock.lock();
         try {
-            newIndex = new ClosedChunkIndex(dir.resolve(dirName), metadata, resolution);
+            newIndex = new ClosedChunkIndex(dir.resolve(dirName), metadata, resolution, indexSettings);
             closedChunkIndexMap.put(newIndexMaxTime, newIndex);
         } finally {
             lock.unlock();
