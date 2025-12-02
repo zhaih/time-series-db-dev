@@ -299,7 +299,7 @@ public class Head implements Closeable {
      */
     public long closeHeadChunks(boolean allowDropEmptySeries) {
         List<MemSeries> allSeries = getSeriesMap().getSeriesMap();
-        IndexChunksResult indexChunksResult = indexCloseableChunks(allSeries);
+        IndexChunksResult indexChunksResult = indexCloseableChunks(allSeries, allowDropEmptySeries);
 
         // Only attempt to update minTime if there are open chunks, or we're not initializing
         if (indexChunksResult.minTimestamp != Long.MAX_VALUE || maxTime != Long.MIN_VALUE) {
@@ -347,9 +347,10 @@ public class Head implements Closeable {
      * Indexes all closeable chunks from the given series list.
      *
      * @param seriesList the list of MemSeries to process
+     * @param allowDropStubSeries whether to allow deleting orphaned stub series
      * @return the result containing closed chunks and the minimum sequence number of in-memory samples
      */
-    private IndexChunksResult indexCloseableChunks(List<MemSeries> seriesList) {
+    private IndexChunksResult indexCloseableChunks(List<MemSeries> seriesList, boolean allowDropStubSeries) {
         long minSeqNo = Long.MAX_VALUE;
         long minTimestamp = Long.MAX_VALUE;
         Map<MemSeries, Set<MemChunk>> seriesToClosedChunks = new HashMap<>();
@@ -359,6 +360,24 @@ public class Head implements Closeable {
         log.info("Closing head chunks before timestamp: {}", cutoffTimestamp);
 
         for (MemSeries series : seriesList) {
+            // Stub series have no labels and cannot be indexed.
+            // They are temporary placeholders created during recovery that should be upgraded with labels.
+            if (series.isStub()) {
+                if (allowDropStubSeries) {
+                    // After recovery completes, delete orphaned stub series
+                    log.error(
+                        "Deleting orphaned stub series during flush: ref={}. This indicates incomplete recovery data.",
+                        series.getReference()
+                    );
+                    seriesMap.decrementStubSeriesCount();
+                    seriesMap.delete(series);
+                } else {
+                    // During early flush cycles, skip stub series (recovery may still be in progress)
+                    log.warn("Skipping stub series during flush: ref={}", series.getReference());
+                }
+                continue;
+            }
+
             MemSeries.ClosableChunkResult closeableChunkResult = series.getClosableChunks(cutoffTimestamp);
 
             var addedChunks = 0;

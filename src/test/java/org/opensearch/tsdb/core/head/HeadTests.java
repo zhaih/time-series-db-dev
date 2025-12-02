@@ -1478,6 +1478,83 @@ public class HeadTests extends OpenSearchTestCase {
         cm.close();
     }
 
+    public void testFlushSkipsStubSeriesWhenDropNotAllowed() throws IOException, InterruptedException {
+        ClosedChunkIndexManager cm = new ClosedChunkIndexManager(
+            createTempDir("metrics"),
+            new InMemoryMetadataStore(),
+            new NOOPRetention(),
+            new NoopCompaction(),
+            threadPool,
+            new ShardId("test", "uuid", 0),
+            defaultSettings
+        );
+        Head head = new Head(createTempDir("head"), new ShardId("test", "uuid", 0), cm, defaultSettings);
+
+        Labels labels = ByteLabels.fromStrings("k1", "v1");
+        long ref = labels.stableHash();
+
+        // Create a stub series with data during recovery
+        Head.HeadAppender appender = head.newAppender();
+        assertTrue(appender.preprocess(Engine.Operation.Origin.PEER_RECOVERY, 0, ref, null, 1000L, 100.0, () -> {}));
+        appender.append(() -> {}, () -> {});
+
+        // Verify series is a stub with data
+        MemSeries series = head.getSeriesMap().getByReference(ref);
+        assertTrue("Series should be stub", series.isStub());
+        assertNull("Stub series should have null labels", series.getLabels());
+        assertEquals("Stub counter should be 1", 1, head.getSeriesMap().getStubSeriesCount());
+
+        // Flush with allowDropEmptySeries=false should skip stub series (not delete)
+        head.closeHeadChunks(false);
+
+        // Stub series should still exist (skipped, not deleted)
+        MemSeries afterFlush = head.getSeriesMap().getByReference(ref);
+        assertNotNull("Stub series should still exist when drop not allowed", afterFlush);
+        assertTrue("Series should still be stub", afterFlush.isStub());
+        assertEquals("Stub counter should still be 1", 1, head.getSeriesMap().getStubSeriesCount());
+
+        head.close();
+        cm.close();
+    }
+
+    public void testFlushDeletesOrphanedStubSeriesWhenDropAllowed() throws IOException, InterruptedException {
+        ClosedChunkIndexManager cm = new ClosedChunkIndexManager(
+            createTempDir("metrics"),
+            new InMemoryMetadataStore(),
+            new NOOPRetention(),
+            new NoopCompaction(),
+            threadPool,
+            new ShardId("test", "uuid", 0),
+            defaultSettings
+        );
+        Head head = new Head(createTempDir("head"), new ShardId("test", "uuid", 0), cm, defaultSettings);
+
+        Labels labels = ByteLabels.fromStrings("k1", "v1");
+        long ref = labels.stableHash();
+
+        // Create a stub series with data during recovery
+        Head.HeadAppender appender = head.newAppender();
+        assertTrue(appender.preprocess(Engine.Operation.Origin.PEER_RECOVERY, 0, ref, null, 1000L, 100.0, () -> {}));
+        appender.append(() -> {}, () -> {});
+
+        // Verify series is a stub with data
+        MemSeries series = head.getSeriesMap().getByReference(ref);
+        assertTrue("Series should be stub", series.isStub());
+        assertNull("Stub series should have null labels", series.getLabels());
+        assertEquals("Stub counter should be 1", 1, head.getSeriesMap().getStubSeriesCount());
+
+        // Flush with allowDropEmptySeries=true should delete orphaned stub series
+        head.closeHeadChunks(true);
+
+        // Stub series should be deleted (orphaned after recovery)
+        MemSeries afterFlush = head.getSeriesMap().getByReference(ref);
+        assertNull("Orphaned stub series should be deleted when drop allowed", afterFlush);
+        assertEquals("Stub counter should be 0 after deletion", 0, head.getSeriesMap().getStubSeriesCount());
+
+        head.close();
+        cm.close();
+    }
+
     /**
      * Helper method to query the LiveSeriesIndex and get the MIN_TIMESTAMP for a specific series reference.
      *
