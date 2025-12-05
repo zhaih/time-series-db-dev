@@ -22,6 +22,7 @@ import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.DiffPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.DividePlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.ExcludeByTagPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.FallbackSeriesBinaryPlanNode;
+import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.IntersectPlanNode;
 import org.opensearch.tsdb.lang.m3.stage.AbsStage;
 import org.opensearch.tsdb.lang.m3.stage.AliasByTagsStage;
 import org.opensearch.tsdb.lang.m3.stage.AliasStage;
@@ -33,6 +34,7 @@ import org.opensearch.tsdb.lang.m3.stage.AvgStage;
 import org.opensearch.tsdb.lang.m3.stage.CountStage;
 import org.opensearch.tsdb.lang.m3.stage.DivideStage;
 import org.opensearch.tsdb.lang.m3.stage.HistogramPercentileStage;
+import org.opensearch.tsdb.lang.m3.stage.IntersectStage;
 import org.opensearch.tsdb.lang.m3.stage.KeepLastValueStage;
 import org.opensearch.tsdb.lang.m3.stage.MaxStage;
 import org.opensearch.tsdb.lang.m3.stage.MinStage;
@@ -677,6 +679,9 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
         }
         if (planNode instanceof FallbackSeriesBinaryPlanNode) {
             return new FallbackSeriesBinaryStage(rhsReferenceName);
+        }
+        if (planNode instanceof IntersectPlanNode intersectPlanNode) {
+            return new IntersectStage(rhsReferenceName, intersectPlanNode.getTags());
         }
         if (planNode instanceof UnionPlanNode) {
             return new UnionStage(rhsReferenceName);

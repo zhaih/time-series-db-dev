@@ -386,6 +386,11 @@ public class Constants {
              * divideSeries function name.
              */
             public static final String DIVIDE_SERIES = "divideSeries";
+
+            /**
+             * intersect function name.
+             */
+            public static final String INTERSECT = "intersect";
         }
 
         /**

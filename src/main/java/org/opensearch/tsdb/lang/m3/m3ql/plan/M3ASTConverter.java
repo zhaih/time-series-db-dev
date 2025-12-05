@@ -20,6 +20,7 @@ import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.BinaryPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.DiffPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.DividePlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.FallbackSeriesBinaryPlanNode;
+import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.IntersectPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.M3PlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.UnionPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.visitor.M3PlanVisitor;
@@ -41,7 +42,8 @@ public class M3ASTConverter {
         Constants.Functions.Binary.DIFF,
         Constants.Functions.Binary.SUBTRACT,
         Constants.Functions.Binary.DIVIDE,
-        Constants.Functions.Binary.DIVIDE_SERIES
+        Constants.Functions.Binary.DIVIDE_SERIES,
+        Constants.Functions.Binary.INTERSECT
     );
 
     /**
@@ -293,6 +295,11 @@ public class M3ASTConverter {
             case Constants.Functions.Binary.DIVIDE, Constants.Functions.Binary.DIVIDE_SERIES -> {
                 List<String> tags = extractGroupByTags(functionNode, 1);
                 yield new DividePlanNode(M3PlannerContext.generateId(), tags);
+            }
+
+            case Constants.Functions.Binary.INTERSECT -> {
+                List<String> tags = extractGroupByTags(functionNode, 1);
+                yield new IntersectPlanNode(M3PlannerContext.generateId(), tags);
             }
 
             default -> throw new IllegalArgumentException("Binary function " + functionName + " is not supported.");
