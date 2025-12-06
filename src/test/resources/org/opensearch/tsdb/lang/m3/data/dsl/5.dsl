@@ -62,6 +62,11 @@
             "percentiles" : [
               99.0
             ]
+          },
+          {
+            "type" : "sort",
+            "sortBy" : "current",
+            "sortOrder" : "desc"
           }
         ],
         "references" : {

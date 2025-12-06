@@ -7,14 +7,14 @@
  */
 package org.opensearch.tsdb.lang.m3.m3ql.plan.nodes;
 
-import org.opensearch.tsdb.lang.m3.common.Constants;
+import org.opensearch.tsdb.lang.m3.common.SortByType;
+import org.opensearch.tsdb.lang.m3.common.SortOrderType;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.FunctionNode;
 import org.opensearch.tsdb.lang.m3.m3ql.parser.nodes.ValueNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.M3PlannerContext;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.visitor.M3PlanVisitor;
 
 import java.util.Locale;
-import java.util.Set;
 
 /**
  * SortPlanNode represents a plan node that handles sort operations in M3QL.
@@ -26,19 +26,8 @@ import java.util.Set;
  * similar to histogramPercentile.
  */
 public class SortPlanNode extends M3PlanNode {
-    private static final String ASC_SORT_ORDER = "asc";
-    private static final String DESC_SORT_ORDER = "desc";
-    private static final String DEFAULT_SORT_ORDER = DESC_SORT_ORDER;
-    private static final Set<String> validSortBy = Set.of(
-        Constants.Functions.Sort.AVG,
-        Constants.Functions.Sort.CURRENT,
-        Constants.Functions.Sort.MAX,
-        Constants.Functions.Sort.STD_DEV,
-        Constants.Functions.Sort.SUM
-    );
-
-    private final String sortBy;
-    private final String sortOrder;
+    private final SortByType sortBy;
+    private final SortOrderType sortOrder;
 
     /**
      * Constructor for SortPlanNode.
@@ -47,7 +36,7 @@ public class SortPlanNode extends M3PlanNode {
      * @param sortBy    The sorting function (avg, max, sum)
      * @param sortOrder The sorting order (asc, desc)
      */
-    public SortPlanNode(int id, String sortBy, String sortOrder) {
+    public SortPlanNode(int id, SortByType sortBy, SortOrderType sortOrder) {
         super(id);
         this.sortBy = sortBy;
         this.sortOrder = sortOrder;
@@ -60,7 +49,7 @@ public class SortPlanNode extends M3PlanNode {
 
     @Override
     public String getExplainName() {
-        return String.format(Locale.ROOT, "SORT(%s, %s)", sortBy, sortOrder);
+        return String.format(Locale.ROOT, "SORT(%s, %s)", sortBy.getValue(), sortOrder.getValue());
     }
 
     /**
@@ -68,7 +57,7 @@ public class SortPlanNode extends M3PlanNode {
      *
      * @return The sorting function (avg, max, sum)
      */
-    public String getSortBy() {
+    public SortByType getSortBy() {
         return sortBy;
     }
 
@@ -77,7 +66,7 @@ public class SortPlanNode extends M3PlanNode {
      *
      * @return The sorting order (asc, desc)
      */
-    public String getSortOrder() {
+    public SortOrderType getSortOrder() {
         return sortOrder;
     }
 
@@ -94,20 +83,15 @@ public class SortPlanNode extends M3PlanNode {
      * @throws IllegalArgumentException if the function arguments are invalid
      */
     public static SortPlanNode of(FunctionNode functionNode) {
-        String sortBy = getSortBy(functionNode);
+        SortByType sortBy = getSortBy(functionNode);
 
         // Second argument (optional): sort order
-        String sortOrder = DEFAULT_SORT_ORDER; // Default
+        SortOrderType sortOrder = SortOrderType.DESC; // Default
         if (functionNode.getChildren().size() > 1) {
             if (!(functionNode.getChildren().get(1) instanceof ValueNode sortOrderValue)) {
                 throw new IllegalArgumentException("Sort order argument must be a value (asc, desc)");
             }
-            sortOrder = sortOrderValue.getValue();
-
-            // Validate sort order
-            if (!ASC_SORT_ORDER.equals(sortOrder) && !DESC_SORT_ORDER.equals(sortOrder)) {
-                throw new IllegalArgumentException("Sort order must be 'asc' or 'desc'. Got: " + sortOrder);
-            }
+            sortOrder = SortOrderType.fromString(sortOrderValue.getValue());
         }
 
         if (functionNode.getChildren().size() > 2) {
@@ -117,21 +101,15 @@ public class SortPlanNode extends M3PlanNode {
         return new SortPlanNode(M3PlannerContext.generateId(), sortBy, sortOrder);
     }
 
-    private static String getSortBy(FunctionNode functionNode) {
+    private static SortByType getSortBy(FunctionNode functionNode) {
         if (functionNode.getChildren().isEmpty()) {
-            throw new IllegalArgumentException("sort function must have at least one argument: sort function (avg, max, sum)");
+            return SortByType.CURRENT;
         }
 
         // First argument: sort function
         if (!(functionNode.getChildren().getFirst() instanceof ValueNode valueNode)) {
-            throw new IllegalArgumentException("Sort function argument must be a value (avg, max, sum)");
+            throw new IllegalArgumentException("Sort function argument must be a value (avg, current, max, min, sum, stddev)");
         }
-        String sortBy = valueNode.getValue();
-
-        // Validate sort function
-        if (!validSortBy.contains(sortBy)) {
-            throw new IllegalArgumentException("Sort function must be one of: avg, current, max, stddev, sum. Got: " + sortBy);
-        }
-        return sortBy;
+        return SortByType.fromString(valueNode.getValue());
     }
 }

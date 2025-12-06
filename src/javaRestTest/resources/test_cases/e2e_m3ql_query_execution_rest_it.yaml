@@ -309,7 +309,7 @@ test_case:
         step: "5m"
       expected:
         status: "failure"
-        error_message: "Query execution failed: status=400, error={\"error\":\"Sort function must be one of: avg, current, max, stddev, sum. Got: notSortOption\"}"
+        error_message: "Query execution failed: status=400, error={\"error\":\"Invalid sortby type: notSortOption, Supported: avg, current, max, min, stddev, sum\"}"
     - name: "error - missing required argument"
       type: "m3ql"
       indices: "e2e_query_execution"

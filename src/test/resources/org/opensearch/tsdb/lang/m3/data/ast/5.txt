@@ -9,3 +9,4 @@ ROOT
       VALUE(bucketid)
       VALUE(bucket)
       VALUE(99.0)
+    FUNCTION(sort)

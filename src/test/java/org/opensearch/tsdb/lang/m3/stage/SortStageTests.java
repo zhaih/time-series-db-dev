@@ -19,6 +19,8 @@ import org.opensearch.tsdb.core.model.ByteLabels;
 import org.opensearch.tsdb.core.model.FloatSample;
 import org.opensearch.tsdb.core.model.Labels;
 import org.opensearch.tsdb.core.model.Sample;
+import org.opensearch.tsdb.lang.m3.common.SortByType;
+import org.opensearch.tsdb.lang.m3.common.SortOrderType;
 import org.opensearch.tsdb.query.aggregator.TimeSeries;
 
 import java.io.IOException;
@@ -34,21 +36,21 @@ public class SortStageTests extends AbstractWireSerializingTestCase<SortStage> {
 
     public void testConstructorWithBothParameters() {
         // Arrange & Act
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG, SortStage.SortOrder.ASC);
+        SortStage sortStage = new SortStage(SortByType.AVG, SortOrderType.ASC);
 
         // Assert
-        assertEquals(SortStage.SortBy.AVG, sortStage.getSortBy());
-        assertEquals(SortStage.SortOrder.ASC, sortStage.getSortOrder());
+        assertEquals(SortByType.AVG, sortStage.getSortBy());
+        assertEquals(SortOrderType.ASC, sortStage.getSortOrder());
         assertEquals("sort", sortStage.getName());
     }
 
     public void testConstructorWithSortByOnly() {
         // Arrange & Act
-        SortStage sortStage = new SortStage(SortStage.SortBy.MAX);
+        SortStage sortStage = new SortStage(SortByType.MAX);
 
         // Assert
-        assertEquals(SortStage.SortBy.MAX, sortStage.getSortBy());
-        assertEquals(SortStage.SortOrder.DESC, sortStage.getSortOrder()); // Default
+        assertEquals(SortByType.MAX, sortStage.getSortBy());
+        assertEquals(SortOrderType.DESC, sortStage.getSortOrder()); // Default
         assertEquals("sort", sortStage.getName());
     }
 
@@ -56,7 +58,7 @@ public class SortStageTests extends AbstractWireSerializingTestCase<SortStage> {
 
     public void testProcessWithEmptyInput() {
         // Arrange
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG);
+        SortStage sortStage = new SortStage(SortByType.AVG);
         List<TimeSeries> input = new ArrayList<>();
 
         // Act
@@ -67,78 +69,186 @@ public class SortStageTests extends AbstractWireSerializingTestCase<SortStage> {
     }
 
     public void testProcessWithNullInput() {
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG);
+        SortStage sortStage = new SortStage(SortByType.AVG);
         TestUtils.assertNullInputThrowsException(sortStage, "sort");
     }
 
     public void testProcessSortByAvgDesc() {
         // Arrange
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG, SortStage.SortOrder.DESC);
-        List<TimeSeries> input = createTestTimeSeries();
+        List<TimeSeries> input = createTestSeriesABC();
+        SortStage sortStage = new SortStage(SortByType.AVG, SortOrderType.DESC);
 
         // Act
         List<TimeSeries> result = sortStage.process(input);
 
-        // Assert
+        // Assert: Verify sort order by checking labels (B > C > A)
         assertEquals(3, result.size());
-        // Should be sorted by average in descending order: [2.0, 1.5, 1.0]
-        assertEquals(2.0, getAverage(result.get(0)), 0.001);
-        assertEquals(1.5, getAverage(result.get(1)), 0.001);
-        assertEquals(1.0, getAverage(result.get(2)), 0.001);
+        assertEquals("B", getLabel(result.get(0))); // highest avg
+        assertEquals("C", getLabel(result.get(1))); // middle avg
+        assertEquals("A", getLabel(result.get(2))); // lowest avg
     }
 
     public void testProcessSortByAvgAsc() {
         // Arrange
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG, SortStage.SortOrder.ASC);
-        List<TimeSeries> input = createTestTimeSeries();
+        List<TimeSeries> input = createTestSeriesABC();
+        SortStage sortStage = new SortStage(SortByType.AVG, SortOrderType.ASC);
 
         // Act
         List<TimeSeries> result = sortStage.process(input);
 
-        // Assert
+        // Assert: Verify sort order (A < C < B)
         assertEquals(3, result.size());
-        // Should be sorted by average in ascending order: [1.0, 1.5, 2.0]
-        assertEquals(1.0, getAverage(result.get(0)), 0.001);
-        assertEquals(1.5, getAverage(result.get(1)), 0.001);
-        assertEquals(2.0, getAverage(result.get(2)), 0.001);
+        assertEquals("A", getLabel(result.get(0))); // lowest avg
+        assertEquals("C", getLabel(result.get(1))); // middle avg
+        assertEquals("B", getLabel(result.get(2))); // highest avg
     }
 
     public void testProcessSortByMaxDesc() {
         // Arrange
-        SortStage sortStage = new SortStage(SortStage.SortBy.MAX, SortStage.SortOrder.DESC);
-        List<TimeSeries> input = createTestTimeSeries();
+        List<TimeSeries> input = createTestSeriesABC();
+        SortStage sortStage = new SortStage(SortByType.MAX, SortOrderType.DESC);
 
         // Act
         List<TimeSeries> result = sortStage.process(input);
 
-        // Assert
+        // Assert: Verify sort order (B > C > A)
         assertEquals(3, result.size());
-        // Should be sorted by max in descending order: [3.0, 2.0, 1.0]
-        assertEquals(3.0, getMax(result.get(0)), 0.001);
-        assertEquals(2.0, getMax(result.get(1)), 0.001);
-        assertEquals(1.0, getMax(result.get(2)), 0.001);
+        assertEquals("B", getLabel(result.get(0))); // max=3.0
+        assertEquals("C", getLabel(result.get(1))); // max=2.0
+        assertEquals("A", getLabel(result.get(2))); // max=1.0
     }
 
     public void testProcessSortBySumDesc() {
         // Arrange
-        SortStage sortStage = new SortStage(SortStage.SortBy.SUM, SortStage.SortOrder.DESC);
-        List<TimeSeries> input = createTestTimeSeries();
+        List<TimeSeries> input = createTestSeriesABC();
+        SortStage sortStage = new SortStage(SortByType.SUM, SortOrderType.DESC);
 
         // Act
         List<TimeSeries> result = sortStage.process(input);
 
-        // Assert
+        // Assert: Verify sort order (B > C > A)
         assertEquals(3, result.size());
-        // Should be sorted by sum in descending order: [6.0, 3.0, 2.0]
-        assertEquals(6.0, getSum(result.get(0)), 0.001);
-        assertEquals(3.0, getSum(result.get(1)), 0.001);
-        assertEquals(2.0, getSum(result.get(2)), 0.001);
+        assertEquals("B", getLabel(result.get(0))); // sum=6.0
+        assertEquals("C", getLabel(result.get(1))); // sum=3.0
+        assertEquals("A", getLabel(result.get(2))); // sum=2.0
+    }
+
+    public void testProcessSortByCurrentDesc() {
+        // Arrange
+        List<TimeSeries> input = createTestSeriesABC();
+        SortStage sortStage = new SortStage(SortByType.CURRENT, SortOrderType.DESC);
+
+        // Act
+        List<TimeSeries> result = sortStage.process(input);
+
+        // Assert: Verify sort order (B > C > A)
+        assertEquals(3, result.size());
+        assertEquals("B", getLabel(result.get(0))); // current=3.0
+        assertEquals("C", getLabel(result.get(1))); // current=2.0
+        assertEquals("A", getLabel(result.get(2))); // current=1.0
+    }
+
+    public void testProcessSortByCurrentAsc() {
+        // Arrange
+        List<TimeSeries> input = createTestSeriesABC();
+        SortStage sortStage = new SortStage(SortByType.CURRENT, SortOrderType.ASC);
+
+        // Act
+        List<TimeSeries> result = sortStage.process(input);
+
+        // Assert: Verify sort order (A < C < B)
+        assertEquals(3, result.size());
+        assertEquals("A", getLabel(result.get(0))); // current=1.0
+        assertEquals("C", getLabel(result.get(1))); // current=2.0
+        assertEquals("B", getLabel(result.get(2))); // current=3.0
+    }
+
+    public void testProcessSortByMinDesc() {
+        // Arrange: Create series with DIFFERENT minimum values
+        // Series A: [5.0, 10.0] -> min=5.0
+        // Series B: [1.0, 20.0] -> min=1.0
+        // Series C: [10.0, 15.0] -> min=10.0
+        TimeSeries seriesA = createLabeledTimeSeries("A", Arrays.asList(5.0, 10.0));
+        TimeSeries seriesB = createLabeledTimeSeries("B", Arrays.asList(1.0, 20.0));
+        TimeSeries seriesC = createLabeledTimeSeries("C", Arrays.asList(10.0, 15.0));
+        List<TimeSeries> input = Arrays.asList(seriesA, seriesB, seriesC);
+
+        SortStage sortStage = new SortStage(SortByType.MIN, SortOrderType.DESC);
+
+        // Act
+        List<TimeSeries> result = sortStage.process(input);
+
+        // Assert: Verify sort order (C > A > B)
+        assertEquals(3, result.size());
+        assertEquals("C", getLabel(result.get(0))); // min=10.0
+        assertEquals("A", getLabel(result.get(1))); // min=5.0
+        assertEquals("B", getLabel(result.get(2))); // min=1.0
+    }
+
+    public void testProcessSortByMinAsc() {
+        // Arrange
+        TimeSeries seriesA = createLabeledTimeSeries("A", Arrays.asList(5.0, 10.0));
+        TimeSeries seriesB = createLabeledTimeSeries("B", Arrays.asList(1.0, 20.0));
+        TimeSeries seriesC = createLabeledTimeSeries("C", Arrays.asList(10.0, 15.0));
+        List<TimeSeries> input = Arrays.asList(seriesA, seriesB, seriesC);
+
+        SortStage sortStage = new SortStage(SortByType.MIN, SortOrderType.ASC);
+
+        // Act
+        List<TimeSeries> result = sortStage.process(input);
+
+        // Assert: Verify sort order (B < A < C)
+        assertEquals(3, result.size());
+        assertEquals("B", getLabel(result.get(0))); // min=1.0
+        assertEquals("A", getLabel(result.get(1))); // min=5.0
+        assertEquals("C", getLabel(result.get(2))); // min=10.0
+    }
+
+    public void testProcessSortByStddevDesc() {
+        // Arrange: Create series with different variations
+        // Series A: [5.0, 5.0] -> stddev=0.0 (no variation)
+        // Series B: [1.0, 10.0] -> stddev=high (large variation)
+        // Series C: [4.0, 6.0] -> stddev=medium (small variation)
+        TimeSeries seriesA = createLabeledTimeSeries("A", Arrays.asList(5.0, 5.0));
+        TimeSeries seriesB = createLabeledTimeSeries("B", Arrays.asList(1.0, 10.0));
+        TimeSeries seriesC = createLabeledTimeSeries("C", Arrays.asList(4.0, 6.0));
+        List<TimeSeries> input = Arrays.asList(seriesA, seriesB, seriesC);
+
+        SortStage sortStage = new SortStage(SortByType.STDDEV, SortOrderType.DESC);
+
+        // Act
+        List<TimeSeries> result = sortStage.process(input);
+
+        // Assert: Verify sort order (B > C > A)
+        assertEquals(3, result.size());
+        assertEquals("B", getLabel(result.get(0))); // highest variation
+        assertEquals("C", getLabel(result.get(1))); // medium variation
+        assertEquals("A", getLabel(result.get(2))); // no variation
+    }
+
+    public void testProcessSortByStddevAsc() {
+        // Arrange
+        TimeSeries seriesA = createLabeledTimeSeries("A", Arrays.asList(5.0, 5.0));
+        TimeSeries seriesB = createLabeledTimeSeries("B", Arrays.asList(1.0, 10.0));
+        TimeSeries seriesC = createLabeledTimeSeries("C", Arrays.asList(4.0, 6.0));
+        List<TimeSeries> input = Arrays.asList(seriesA, seriesB, seriesC);
+
+        SortStage sortStage = new SortStage(SortByType.STDDEV, SortOrderType.ASC);
+
+        // Act
+        List<TimeSeries> result = sortStage.process(input);
+
+        // Assert: Verify sort order (A < C < B)
+        assertEquals(3, result.size());
+        assertEquals("A", getLabel(result.get(0))); // no variation
+        assertEquals("C", getLabel(result.get(1))); // medium variation
+        assertEquals("B", getLabel(result.get(2))); // highest variation
     }
 
     public void testProcessWithSingleTimeSeries() {
         // Arrange
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG);
-        List<TimeSeries> input = Arrays.asList(createTimeSeries(Arrays.asList(1.0, 2.0, 3.0)));
+        SortStage sortStage = new SortStage(SortByType.AVG);
+        List<TimeSeries> input = Arrays.asList(createLabeledTimeSeries("single", Arrays.asList(1.0, 2.0, 3.0)));
 
         // Act
         List<TimeSeries> result = sortStage.process(input);
@@ -149,21 +259,22 @@ public class SortStageTests extends AbstractWireSerializingTestCase<SortStage> {
     }
 
     public void testProcessWithEmptyTimeSeries() {
-        // Arrange
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG);
-        List<TimeSeries> input = Arrays.asList(createTimeSeries(new ArrayList<>()));
+        // Arrange: Empty time series should not cause errors
+        SortStage sortStage = new SortStage(SortByType.AVG);
+        TimeSeries emptyTimeSeries = createLabeledTimeSeries("empty", new ArrayList<>());
+        List<TimeSeries> input = Arrays.asList(emptyTimeSeries);
 
         // Act
         List<TimeSeries> result = sortStage.process(input);
 
-        // Assert
+        // Assert: Should return the series as-is
         assertEquals(1, result.size());
-        assertEquals(0.0, getAverage(result.get(0)), 0.001);
+        assertEquals("empty", getLabel(result.get(0)));
     }
 
     public void testProcessWithNaNValues() {
-        // Arrange
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG);
+        // Arrange: NaN values should be handled correctly during sorting
+        SortStage sortStage = new SortStage(SortByType.AVG);
         List<Sample> samples = Arrays.asList(new FloatSample(1000L, 1.0), new FloatSample(2000L, Double.NaN), new FloatSample(3000L, 3.0));
         Labels labels = ByteLabels.fromMap(Map.of("label", "test"));
         TimeSeries timeSeries = new TimeSeries(samples, labels, 1000L, 3000L, 1000L, "test");
@@ -172,14 +283,14 @@ public class SortStageTests extends AbstractWireSerializingTestCase<SortStage> {
         // Act
         List<TimeSeries> result = sortStage.process(input);
 
-        // Assert
+        // Assert: Should process without errors
         assertEquals(1, result.size());
-        assertEquals(2.0, getAverage(result.get(0)), 0.001); // Should ignore NaN values
+        assertEquals("test", getLabel(result.get(0)));
     }
 
     public void testProcessWithNullSamples() {
-        // Arrange
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG);
+        // Arrange: Null samples should be handled correctly during sorting
+        SortStage sortStage = new SortStage(SortByType.AVG);
         List<Sample> samples = Arrays.asList(new FloatSample(1000L, 1.0), null, new FloatSample(3000L, 3.0));
         Labels labels = ByteLabels.fromMap(Map.of("label", "test"));
         TimeSeries timeSeries = new TimeSeries(samples, labels, 1000L, 3000L, 1000L, "test");
@@ -188,58 +299,60 @@ public class SortStageTests extends AbstractWireSerializingTestCase<SortStage> {
         // Act
         List<TimeSeries> result = sortStage.process(input);
 
-        // Assert
+        // Assert: Should process without errors
         assertEquals(1, result.size());
-        assertEquals(2.0, getAverage(result.get(0)), 0.001); // Should ignore null samples
+        assertEquals("test", getLabel(result.get(0)));
     }
 
     // ========== SortBy Enum Tests ==========
 
     public void testSortByFromString() {
-        assertEquals(SortStage.SortBy.AVG, SortStage.SortBy.fromString("avg"));
-        assertEquals(SortStage.SortBy.AVG, SortStage.SortBy.fromString("AVG"));
-        assertEquals(SortStage.SortBy.AVG, SortStage.SortBy.fromString("Avg"));
-        assertEquals(SortStage.SortBy.MAX, SortStage.SortBy.fromString("max"));
-        assertEquals(SortStage.SortBy.SUM, SortStage.SortBy.fromString("sum"));
+        assertEquals(SortByType.AVG, SortByType.fromString("avg"));
+        assertEquals(SortByType.CURRENT, SortByType.fromString("current"));
+        assertEquals(SortByType.MAX, SortByType.fromString("max"));
+        assertEquals(SortByType.MIN, SortByType.fromString("min"));
+        assertEquals(SortByType.SUM, SortByType.fromString("sum"));
+        assertEquals(SortByType.STDDEV, SortByType.fromString("stddev"));
     }
 
     public void testSortByFromStringInvalid() {
-        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> SortStage.SortBy.fromString("invalid"));
-        assertTrue(exception.getMessage().contains("Unknown sort function"));
-        assertTrue(exception.getMessage().contains("avg, max, sum"));
+        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> SortByType.fromString("invalid"));
+        assertTrue(exception.getMessage().contains("Invalid sortby type"));
+        assertTrue(exception.getMessage().contains("avg, current, max, min, stddev, sum"));
     }
 
-    public void testSortByGetName() {
-        assertEquals("avg", SortStage.SortBy.AVG.getName());
-        assertEquals("max", SortStage.SortBy.MAX.getName());
-        assertEquals("sum", SortStage.SortBy.SUM.getName());
+    public void testSortByGetValue() {
+        assertEquals("avg", SortByType.AVG.getValue());
+        assertEquals("current", SortByType.CURRENT.getValue());
+        assertEquals("max", SortByType.MAX.getValue());
+        assertEquals("min", SortByType.MIN.getValue());
+        assertEquals("sum", SortByType.SUM.getValue());
+        assertEquals("stddev", SortByType.STDDEV.getValue());
     }
 
     // ========== SortOrder Enum Tests ==========
 
     public void testSortOrderFromString() {
-        assertEquals(SortStage.SortOrder.ASC, SortStage.SortOrder.fromString("asc"));
-        assertEquals(SortStage.SortOrder.ASC, SortStage.SortOrder.fromString("ASC"));
-        assertEquals(SortStage.SortOrder.ASC, SortStage.SortOrder.fromString("Asc"));
-        assertEquals(SortStage.SortOrder.DESC, SortStage.SortOrder.fromString("desc"));
+        assertEquals(SortOrderType.ASC, SortOrderType.fromString("asc"));
+        assertEquals(SortOrderType.DESC, SortOrderType.fromString("desc"));
     }
 
     public void testSortOrderFromStringInvalid() {
-        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> SortStage.SortOrder.fromString("invalid"));
-        assertTrue(exception.getMessage().contains("Unknown sort order"));
-        assertTrue(exception.getMessage().contains("asc, desc"));
+        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> SortOrderType.fromString("invalid"));
+        assertTrue(exception.getMessage().contains("Invalid sort order type"));
+        assertTrue(exception.getMessage().contains("asc, ascending, desc, descending"));
     }
 
-    public void testSortOrderGetName() {
-        assertEquals("asc", SortStage.SortOrder.ASC.getName());
-        assertEquals("desc", SortStage.SortOrder.DESC.getName());
+    public void testSortOrderGetValue() {
+        assertEquals("asc", SortOrderType.ASC.getValue());
+        assertEquals("desc", SortOrderType.DESC.getValue());
     }
 
     // ========== Serialization Tests ==========
 
     public void testWriteToAndReadFrom() throws IOException {
         // Arrange
-        SortStage original = new SortStage(SortStage.SortBy.MAX, SortStage.SortOrder.ASC);
+        SortStage original = new SortStage(SortByType.MAX, SortOrderType.ASC);
         BytesStreamOutput output = new BytesStreamOutput();
 
         // Act
@@ -254,7 +367,7 @@ public class SortStageTests extends AbstractWireSerializingTestCase<SortStage> {
 
     public void testToXContent() throws IOException {
         // Test XContent serialization
-        SortStage stage = new SortStage(SortStage.SortBy.SUM, SortStage.SortOrder.DESC);
+        SortStage stage = new SortStage(SortByType.SUM, SortOrderType.DESC);
         XContentBuilder builder = XContentFactory.jsonBuilder();
 
         builder.startObject();
@@ -278,8 +391,8 @@ public class SortStageTests extends AbstractWireSerializingTestCase<SortStage> {
         SortStage sortStage = SortStage.fromArgs(args);
 
         // Assert
-        assertEquals(SortStage.SortBy.AVG, sortStage.getSortBy());
-        assertEquals(SortStage.SortOrder.ASC, sortStage.getSortOrder());
+        assertEquals(SortByType.AVG, sortStage.getSortBy());
+        assertEquals(SortOrderType.ASC, sortStage.getSortOrder());
     }
 
     public void testFromArgsWithDefaultOrder() {
@@ -290,8 +403,8 @@ public class SortStageTests extends AbstractWireSerializingTestCase<SortStage> {
         SortStage sortStage = SortStage.fromArgs(args);
 
         // Assert
-        assertEquals(SortStage.SortBy.MAX, sortStage.getSortBy());
-        assertEquals(SortStage.SortOrder.DESC, sortStage.getSortOrder()); // Default
+        assertEquals(SortByType.MAX, sortStage.getSortBy());
+        assertEquals(SortOrderType.DESC, sortStage.getSortOrder()); // Default
     }
 
     public void testFromArgsMissingSortBy() {
@@ -347,165 +460,222 @@ public class SortStageTests extends AbstractWireSerializingTestCase<SortStage> {
         SortStage sortStage = SortStage.fromArgs(args);
 
         // Assert - should use default order when null
-        assertEquals(SortStage.SortBy.AVG, sortStage.getSortBy());
-        assertEquals(SortStage.SortOrder.DESC, sortStage.getSortOrder());
+        assertEquals(SortByType.AVG, sortStage.getSortBy());
+        assertEquals(SortOrderType.DESC, sortStage.getSortOrder());
     }
 
     // ========== Interface Compliance Tests ==========
 
     public void testIsGlobalAggregation() {
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG);
+        SortStage sortStage = new SortStage(SortByType.AVG);
         assertTrue(sortStage.isGlobalAggregation());
     }
 
     public void testIsCoordinatorOnly() {
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG);
+        SortStage sortStage = new SortStage(SortByType.AVG);
         assertTrue(sortStage.isCoordinatorOnly());
     }
 
     public void testSupportConcurrentSegmentSearch() {
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG);
+        SortStage sortStage = new SortStage(SortByType.AVG);
         assertTrue(sortStage.supportConcurrentSegmentSearch());
     }
 
     // ========== Edge Cases and Error Handling ==========
 
     public void testProcessWithVeryLargeValues() {
-        // Test with very large values
-        SortStage sortStage = new SortStage(SortStage.SortBy.MAX);
+        // Test with very large values - should not overflow
+        SortStage sortStage = new SortStage(SortByType.MAX);
         List<Sample> samples = Arrays.asList(new FloatSample(1000L, Double.MAX_VALUE), new FloatSample(2000L, Double.MIN_VALUE));
-        Labels labels = ByteLabels.fromMap(Map.of("label", "test"));
-        TimeSeries timeSeries = new TimeSeries(samples, labels, 1000L, 2000L, 1000L, "test");
+        Labels labels = ByteLabels.fromMap(Map.of("label", "large"));
+        TimeSeries timeSeries = new TimeSeries(samples, labels, 1000L, 2000L, 1000L, "large");
         List<TimeSeries> input = Arrays.asList(timeSeries);
 
         // Act
         List<TimeSeries> result = sortStage.process(input);
 
-        // Assert
+        // Assert: Should process without errors
         assertEquals(1, result.size());
-        assertEquals(Double.MAX_VALUE, getMax(result.get(0)), 0.001);
+        assertEquals("large", getLabel(result.get(0)));
     }
 
     public void testProcessWithAllNaNValues() {
-        // Test with all NaN values
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG);
+        // Test with all NaN values - should handle gracefully
+        SortStage sortStage = new SortStage(SortByType.AVG);
         List<Sample> samples = Arrays.asList(new FloatSample(1000L, Double.NaN), new FloatSample(2000L, Double.NaN));
-        Labels labels = ByteLabels.fromMap(Map.of("label", "test"));
-        TimeSeries timeSeries = new TimeSeries(samples, labels, 1000L, 2000L, 1000L, "test");
+        Labels labels = ByteLabels.fromMap(Map.of("label", "allnan"));
+        TimeSeries timeSeries = new TimeSeries(samples, labels, 1000L, 2000L, 1000L, "allnan");
         List<TimeSeries> input = Arrays.asList(timeSeries);
 
         // Act
         List<TimeSeries> result = sortStage.process(input);
 
-        // Assert
+        // Assert: Should process without errors
         assertEquals(1, result.size());
-        assertEquals(0.0, getAverage(result.get(0)), 0.001); // Should return 0.0 for empty valid samples
+        assertEquals("allnan", getLabel(result.get(0)));
     }
 
     public void testProcessWithAllNullSamples() {
-        // Test with all null samples
-        SortStage sortStage = new SortStage(SortStage.SortBy.AVG);
+        // Test with all null samples - should handle gracefully
+        SortStage sortStage = new SortStage(SortByType.AVG);
         List<Sample> samples = Arrays.asList(null, null);
-        Labels labels = ByteLabels.fromMap(Map.of("label", "test"));
-        TimeSeries timeSeries = new TimeSeries(samples, labels, 1000L, 2000L, 1000L, "test");
+        Labels labels = ByteLabels.fromMap(Map.of("label", "allnull"));
+        TimeSeries timeSeries = new TimeSeries(samples, labels, 1000L, 2000L, 1000L, "allnull");
         List<TimeSeries> input = Arrays.asList(timeSeries);
 
         // Act
         List<TimeSeries> result = sortStage.process(input);
 
-        // Assert
+        // Assert: Should process without errors
         assertEquals(1, result.size());
-        assertEquals(0.0, getAverage(result.get(0)), 0.001); // Should return 0.0 for empty valid samples
+        assertEquals("allnull", getLabel(result.get(0)));
+    }
+
+    public void testProcessSortByCurrentWithTrailingNaN() {
+        // Test CURRENT with NaN at the end - verify it sorts correctly
+        SortStage sortStage = new SortStage(SortByType.CURRENT);
+        // Series A: last value is 5.0 (has trailing NaN)
+        // Series B: last value is 10.0 (no NaN)
+        TimeSeries seriesA = createTimeSeriesWithSamples(
+            "A",
+            Arrays.asList(new FloatSample(1000L, 1.0), new FloatSample(2000L, 5.0), new FloatSample(3000L, Double.NaN))
+        );
+        TimeSeries seriesB = createLabeledTimeSeries("B", Arrays.asList(10.0));
+        List<TimeSeries> input = Arrays.asList(seriesA, seriesB);
+
+        // Act
+        List<TimeSeries> result = sortStage.process(input);
+
+        // Assert: B should be first (current=10.0), then A (current=5.0)
+        assertEquals(2, result.size());
+        assertEquals("B", getLabel(result.get(0)));
+        assertEquals("A", getLabel(result.get(1)));
+    }
+
+    public void testProcessSortByCurrentWithAllNaN() {
+        // Test CURRENT with all NaN values - should handle gracefully
+        SortStage sortStage = new SortStage(SortByType.CURRENT);
+        TimeSeries series = createTimeSeriesWithSamples(
+            "nanonly",
+            Arrays.asList(new FloatSample(1000L, Double.NaN), new FloatSample(2000L, Double.NaN))
+        );
+        List<TimeSeries> input = Arrays.asList(series);
+
+        // Act
+        List<TimeSeries> result = sortStage.process(input);
+
+        // Assert: Should process without errors
+        assertEquals(1, result.size());
+        assertEquals("nanonly", getLabel(result.get(0)));
+    }
+
+    public void testProcessSortByMinWithEmpty() {
+        // Test MIN with empty time series - should handle gracefully
+        SortStage sortStage = new SortStage(SortByType.MIN);
+        TimeSeries emptyTimeSeries = createLabeledTimeSeries("empty", new ArrayList<>());
+        List<TimeSeries> input = Arrays.asList(emptyTimeSeries);
+
+        // Act
+        List<TimeSeries> result = sortStage.process(input);
+
+        // Assert: Should process without errors
+        assertEquals(1, result.size());
+        assertEquals("empty", getLabel(result.get(0)));
+    }
+
+    public void testProcessSortByStddevWithSingleValue() {
+        // Test STDDEV with single value - should sort correctly
+        SortStage sortStage = new SortStage(SortByType.STDDEV);
+        // Single value series should have stddev=0, multi-value series should have higher stddev
+        TimeSeries singleValueSeries = createLabeledTimeSeries("single", Arrays.asList(5.0));
+        TimeSeries multiValueSeries = createLabeledTimeSeries("multi", Arrays.asList(1.0, 10.0));
+        List<TimeSeries> input = Arrays.asList(singleValueSeries, multiValueSeries);
+
+        // Act
+        List<TimeSeries> result = sortStage.process(input);
+
+        // Assert: multi should be first (higher stddev), single should be last (stddev=0)
+        assertEquals(2, result.size());
+        assertEquals("multi", getLabel(result.get(0)));
+        assertEquals("single", getLabel(result.get(1)));
+    }
+
+    public void testProcessSortByStddevWithIdenticalValues() {
+        // Test STDDEV with identical values - should sort correctly
+        SortStage sortStage = new SortStage(SortByType.STDDEV);
+        // Identical values should have stddev=0, varying values should have higher stddev
+        TimeSeries identicalSeries = createLabeledTimeSeries("identical", Arrays.asList(5.0, 5.0, 5.0));
+        TimeSeries varyingSeries = createLabeledTimeSeries("varying", Arrays.asList(1.0, 5.0, 10.0));
+        List<TimeSeries> input = Arrays.asList(identicalSeries, varyingSeries);
+
+        // Act
+        List<TimeSeries> result = sortStage.process(input);
+
+        // Assert: varying should be first (higher stddev), identical should be last (stddev=0)
+        assertEquals(2, result.size());
+        assertEquals("varying", getLabel(result.get(0)));
+        assertEquals("identical", getLabel(result.get(1)));
     }
 
     // ========== Helper Methods ==========
 
-    private List<TimeSeries> createTestTimeSeries() {
-        // Create time series with different averages, maxes, and sums
-        // Series 1: avg=1.0, max=1.0, sum=2.0
-        TimeSeries series1 = createTimeSeries(Arrays.asList(1.0, 1.0));
-
-        // Series 2: avg=2.0, max=3.0, sum=6.0
-        TimeSeries series2 = createTimeSeries(Arrays.asList(1.0, 2.0, 3.0));
-
-        // Series 3: avg=1.5, max=2.0, sum=3.0
-        TimeSeries series3 = createTimeSeries(Arrays.asList(1.0, 2.0));
-
-        return Arrays.asList(series1, series2, series3);
+    /**
+     * Creates a standard set of three test time series (A, B, C) for sorting tests.
+     * Series A: [1.0, 1.0] -> avg=1.0, max=1.0, sum=2.0, current=1.0
+     * Series B: [1.0, 2.0, 3.0] -> avg=2.0, max=3.0, sum=6.0, current=3.0
+     * Series C: [1.0, 2.0] -> avg=1.5, max=2.0, sum=3.0, current=2.0
+     */
+    private List<TimeSeries> createTestSeriesABC() {
+        TimeSeries seriesA = createLabeledTimeSeries("A", Arrays.asList(1.0, 1.0));
+        TimeSeries seriesB = createLabeledTimeSeries("B", Arrays.asList(1.0, 2.0, 3.0));
+        TimeSeries seriesC = createLabeledTimeSeries("C", Arrays.asList(1.0, 2.0));
+        return Arrays.asList(seriesA, seriesB, seriesC);
     }
 
-    private TimeSeries createTimeSeries(List<Double> values) {
+    /**
+     * Creates a time series with a label identifier for testing.
+     * This allows tests to verify sorting behavior by checking the order of labels
+     * instead of recalculating expected values.
+     */
+    private TimeSeries createLabeledTimeSeries(String label, List<Double> values) {
         List<Sample> samples = new ArrayList<>();
         for (int i = 0; i < values.size(); i++) {
             samples.add(new FloatSample(1000L + i * 1000L, values.get(i)));
         }
-        Labels labels = ByteLabels.fromMap(Map.of("label", "test"));
-        return new TimeSeries(samples, labels, 1000L, 1000L + (values.size() - 1) * 1000L, 1000L, "test");
+        Labels labels = ByteLabels.fromMap(Map.of("label", label));
+        long endTime = values.isEmpty() ? 1000L : 1000L + (values.size() - 1) * 1000L;
+        return new TimeSeries(samples, labels, 1000L, endTime, 1000L, label);
     }
 
-    private double getAverage(TimeSeries timeSeries) {
-        List<Sample> samples = timeSeries.getSamples();
-        if (samples.isEmpty()) {
-            return 0.0;
-        }
-
-        double sum = 0.0;
-        int count = 0;
-        for (Sample sample : samples) {
-            if (sample != null && !Double.isNaN(sample.getValue())) {
-                sum += sample.getValue();
-                count++;
-            }
-        }
-
-        return count == 0 ? 0.0 : sum / count;
+    /**
+     * Creates a time series with custom samples and a label identifier.
+     */
+    private TimeSeries createTimeSeriesWithSamples(String label, List<Sample> samples) {
+        Labels labels = ByteLabels.fromMap(Map.of("label", label));
+        long endTime = samples.isEmpty() ? 1000L : samples.get(samples.size() - 1).getTimestamp();
+        return new TimeSeries(samples, labels, 1000L, endTime, 1000L, label);
     }
 
-    private double getMax(TimeSeries timeSeries) {
-        List<Sample> samples = timeSeries.getSamples();
-        if (samples.isEmpty()) {
-            return Double.NEGATIVE_INFINITY;
-        }
-
-        double max = Double.NEGATIVE_INFINITY;
-        for (Sample sample : samples) {
-            if (sample != null && !Double.isNaN(sample.getValue())) {
-                max = Math.max(max, sample.getValue());
-            }
-        }
-
-        return max == Double.NEGATIVE_INFINITY ? 0.0 : max;
-    }
-
-    private double getSum(TimeSeries timeSeries) {
-        List<Sample> samples = timeSeries.getSamples();
-        if (samples.isEmpty()) {
-            return 0.0;
-        }
-
-        double sum = 0.0;
-        for (Sample sample : samples) {
-            if (sample != null && !Double.isNaN(sample.getValue())) {
-                sum += sample.getValue();
-            }
-        }
-
-        return sum;
+    /**
+     * Extracts the label from a time series for verification purposes.
+     */
+    private String getLabel(TimeSeries timeSeries) {
+        return timeSeries.getLabels().get("label");
     }
 
     /**
      * Test equals method for SortStage.
      */
     public void testEquals() {
-        SortStage stage1 = new SortStage(SortStage.SortBy.AVG, SortStage.SortOrder.DESC);
-        SortStage stage2 = new SortStage(SortStage.SortBy.AVG, SortStage.SortOrder.DESC);
+        SortStage stage1 = new SortStage(SortByType.AVG, SortOrderType.DESC);
+        SortStage stage2 = new SortStage(SortByType.AVG, SortOrderType.DESC);
 
         assertEquals("Equal SortStages should be equal", stage1, stage2);
 
-        SortStage stageDiffSortBy = new SortStage(SortStage.SortBy.MAX, SortStage.SortOrder.DESC);
+        SortStage stageDiffSortBy = new SortStage(SortByType.MAX, SortOrderType.DESC);
         assertNotEquals("Different sortBy should not be equal", stage1, stageDiffSortBy);
 
-        SortStage stageDiffSortOrder = new SortStage(SortStage.SortBy.AVG, SortStage.SortOrder.ASC);
+        SortStage stageDiffSortOrder = new SortStage(SortByType.AVG, SortOrderType.ASC);
         assertNotEquals("Different sortOrder should not be equal", stage1, stageDiffSortOrder);
 
         assertEquals("Stage should equal itself", stage1, stage1);
@@ -514,16 +684,16 @@ public class SortStageTests extends AbstractWireSerializingTestCase<SortStage> {
 
         assertNotEquals("Stage should not equal different class", "string", stage1);
 
-        for (SortStage.SortBy sortBy : SortStage.SortBy.values()) {
-            for (SortStage.SortOrder sortOrder : SortStage.SortOrder.values()) {
+        for (SortByType sortBy : SortByType.values()) {
+            for (SortOrderType sortOrder : SortOrderType.values()) {
                 SortStage stage3 = new SortStage(sortBy, sortOrder);
                 SortStage stage4 = new SortStage(sortBy, sortOrder);
                 assertEquals("Stages with same sortBy " + sortBy + " and sortOrder " + sortOrder + " should be equal", stage3, stage4);
             }
         }
 
-        SortStage stageDefault1 = new SortStage(SortStage.SortBy.SUM);
-        SortStage stageDefault2 = new SortStage(SortStage.SortBy.SUM);
+        SortStage stageDefault1 = new SortStage(SortByType.SUM);
+        SortStage stageDefault2 = new SortStage(SortByType.SUM);
         assertEquals("Stages with default sort order should be equal", stageDefault1, stageDefault2);
     }
 
@@ -534,6 +704,6 @@ public class SortStageTests extends AbstractWireSerializingTestCase<SortStage> {
 
     @Override
     protected SortStage createTestInstance() {
-        return new SortStage(randomFrom(SortStage.SortBy.values()), randomFrom(SortStage.SortOrder.values()));
+        return new SortStage(randomFrom(SortByType.values()), randomFrom(SortOrderType.values()));
     }
 }

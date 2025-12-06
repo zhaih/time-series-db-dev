@@ -410,6 +410,11 @@ public class Constants {
             public static final String AVG = "avg";
 
             /**
+             * average aggregation function name.
+             */
+            public static final String AVERAGE = "average";
+
+            /**
              * current function name.
              */
             public static final String CURRENT = "current";
@@ -420,6 +425,21 @@ public class Constants {
             public static final String MAX = "max";
 
             /**
+             * maximum aggregation function name.
+             */
+            public static final String MAXIMUM = "maximum";
+
+            /**
+             * min function name.
+             */
+            public static final String MIN = "min";
+
+            /**
+             * minimum aggregation function name.
+             */
+            public static final String MINIMUM = "minimum";
+
+            /**
              * stddev function name.
              */
             public static final String STD_DEV = "stddev";
@@ -428,6 +448,12 @@ public class Constants {
              * sum function name.
              */
             public static final String SUM = "sum";
+
+            public static final String ASC = "asc";
+            public static final String ASCENDING = "ascending";
+            public static final String DESC = "desc";
+            public static final String DESCENDING = "descending";
+
         }
     }
 }

@@ -67,6 +67,11 @@
           {
             "type" : "alias",
             "pattern" : "total_count"
+          },
+          {
+            "type" : "sort",
+            "sortBy" : "current",
+            "sortOrder" : "desc"
           }
         ],
         "references" : {

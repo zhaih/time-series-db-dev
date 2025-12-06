@@ -12,6 +12,8 @@ import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.tsdb.core.model.Sample;
+import org.opensearch.tsdb.lang.m3.common.SortByType;
+import org.opensearch.tsdb.lang.m3.common.SortOrderType;
 import org.opensearch.tsdb.query.aggregator.TimeSeries;
 import org.opensearch.tsdb.query.stage.PipelineStageAnnotation;
 import org.opensearch.tsdb.query.stage.UnaryPipelineStage;
@@ -47,96 +49,16 @@ public class SortStage implements UnaryPipelineStage {
     /** The argument name for sortOrder parameter. */
     public static final String SORT_ORDER_ARG = "sortOrder";
 
-    /**
-     * Enumeration of supported sorting criteria for time series.
-     */
-    public enum SortBy {
-        /** Sort by average of all values in the time series */
-        AVG("avg"),
-        /** Sort by maximum value in the time series */
-        MAX("max"),
-        /** Sort by sum of all values in the time series */
-        SUM("sum");
-
-        private final String name;
-
-        SortBy(String name) {
-            this.name = name;
-        }
-
-        /**
-         * Get the string representation of this sort criteria.
-         * @return the name of the sort criteria
-         */
-        public String getName() {
-            return name;
-        }
-
-        /**
-         * Parse a string into a SortBy enum value.
-         * @param name the string representation (case insensitive)
-         * @return the corresponding SortBy enum value
-         * @throws IllegalArgumentException if the name is not recognized
-         */
-        public static SortBy fromString(String name) {
-            for (SortBy sortBy : values()) {
-                if (sortBy.name.equalsIgnoreCase(name)) {
-                    return sortBy;
-                }
-            }
-            throw new IllegalArgumentException("Unknown sort function: " + name + ". Supported: avg, max, sum");
-        }
-    }
-
-    /**
-     * Enumeration of supported sort orders.
-     */
-    public enum SortOrder {
-        /** Ascending order (lowest to highest) */
-        ASC("asc"),
-        /** Descending order (highest to lowest) */
-        DESC("desc");
-
-        private final String name;
-
-        SortOrder(String name) {
-            this.name = name;
-        }
-
-        /**
-         * Get the string representation of this sort order.
-         * @return the name of the sort order
-         */
-        public String getName() {
-            return name;
-        }
-
-        /**
-         * Parse a string into a SortOrder enum value.
-         * @param name the string representation (case insensitive)
-         * @return the corresponding SortOrder enum value
-         * @throws IllegalArgumentException if the name is not recognized
-         */
-        public static SortOrder fromString(String name) {
-            for (SortOrder order : values()) {
-                if (order.name.equalsIgnoreCase(name)) {
-                    return order;
-                }
-            }
-            throw new IllegalArgumentException("Unknown sort order: " + name + ". Supported: asc, desc");
-        }
-    }
-
-    private final SortBy sortBy;
-    private final SortOrder sortOrder;
+    private final SortByType sortBy;
+    private final SortOrderType sortOrder;
 
     /**
      * Constructs a new SortStage with the specified sort criteria and order.
      *
-     * @param sortBy the criteria to sort by (avg, max, sum)
+     * @param sortBy the criteria to sort by (avg, current, max, min, sum, stddev)
      * @param sortOrder the order to sort in (asc, desc)
      */
-    public SortStage(SortBy sortBy, SortOrder sortOrder) {
+    public SortStage(SortByType sortBy, SortOrderType sortOrder) {
         this.sortBy = sortBy;
         this.sortOrder = sortOrder;
     }
@@ -144,10 +66,10 @@ public class SortStage implements UnaryPipelineStage {
     /**
      * Constructs a new SortStage with the specified sort criteria and default descending order.
      *
-     * @param sortBy the criteria to sort by (avg, max, sum)
+     * @param sortBy the criteria to sort by (avg, current, max, min, sum, stddev)
      */
-    public SortStage(SortBy sortBy) {
-        this(sortBy, SortOrder.DESC); // Default to descending order
+    public SortStage(SortByType sortBy) {
+        this(sortBy, SortOrderType.DESC); // Default to descending order
     }
 
     @Override
@@ -166,7 +88,7 @@ public class SortStage implements UnaryPipelineStage {
         // Each time series remains unchanged, only the order changes
         Comparator<TimeSeries> comparator = createComparator();
 
-        if (sortOrder == SortOrder.ASC) {
+        if (sortOrder == SortOrderType.ASC) {
             result.sort(comparator);
         } else {
             result.sort(comparator.reversed());
@@ -181,8 +103,11 @@ public class SortStage implements UnaryPipelineStage {
     private Comparator<TimeSeries> createComparator() {
         return switch (sortBy) {
             case AVG -> Comparator.comparingDouble(this::calculateAverage);
+            case CURRENT -> Comparator.comparingDouble(this::calculateCurrent);
             case MAX -> Comparator.comparingDouble(this::calculateMax);
+            case MIN -> Comparator.comparingDouble(this::calculateMin);
             case SUM -> Comparator.comparingDouble(this::calculateSum);
+            case STDDEV -> Comparator.comparingDouble(this::calculateStddev);
         };
     }
 
@@ -208,6 +133,23 @@ public class SortStage implements UnaryPipelineStage {
     }
 
     /**
+     * Calculate the last of all values in the time series as the sorting key.
+     */
+    private double calculateCurrent(TimeSeries timeSeries) {
+        List<Sample> samples = timeSeries.getSamples();
+        if (samples.isEmpty()) {
+            return 0.0;
+        }
+        for (int i = samples.size() - 1; i >= 0; i--) {
+            Sample sample = samples.get(i);
+            if (sample != null && !Double.isNaN(sample.getValue())) {
+                return sample.getValue();
+            }
+        }
+        return 0.0;
+    }
+
+    /**
      * Calculate the maximum value in the time series as the sorting key.
      */
     private double calculateMax(TimeSeries timeSeries) {
@@ -224,6 +166,25 @@ public class SortStage implements UnaryPipelineStage {
         }
 
         return max == Double.NEGATIVE_INFINITY ? 0.0 : max;
+    }
+
+    /**
+     * Calculate the minimum value in the time series as the sorting key.
+     */
+    private double calculateMin(TimeSeries timeSeries) {
+        List<Sample> samples = timeSeries.getSamples();
+        if (samples.isEmpty()) {
+            return 0.0;
+        }
+
+        double min = Double.POSITIVE_INFINITY;
+        for (Sample sample : samples) {
+            if (sample != null && !Double.isNaN(sample.getValue())) {
+                min = Math.min(min, sample.getValue());
+            }
+        }
+
+        return min == Double.POSITIVE_INFINITY ? 0.0 : min;
     }
 
     /**
@@ -245,6 +206,28 @@ public class SortStage implements UnaryPipelineStage {
         return sum;
     }
 
+    /**
+     * Calculate the standard deviation of all values in the time series as the sorting key.
+     */
+    private double calculateStddev(TimeSeries timeSeries) {
+        List<Sample> samples = timeSeries.getSamples();
+        if (samples.isEmpty()) {
+            return 0.0;
+        }
+        double stddev = 0.0;
+        if (samples.size() > 1) {
+            double avg = calculateAverage(timeSeries);
+            double sumOfSquaredDifferences = samples.stream()
+                .filter(s -> s != null && !Double.isNaN(s.getValue()))
+                .map(s -> Math.pow(s.getValue() - avg, 2))
+                .mapToDouble(Double::doubleValue)
+                .sum();
+            double variance = sumOfSquaredDifferences / (samples.size() - 1);
+            stddev = Math.sqrt(variance);
+        }
+        return stddev;
+    }
+
     @Override
     public String getName() {
         return NAME;
@@ -254,7 +237,7 @@ public class SortStage implements UnaryPipelineStage {
      * Get the sort criteria.
      * @return the sort criteria
      */
-    public SortBy getSortBy() {
+    public SortByType getSortBy() {
         return sortBy;
     }
 
@@ -262,7 +245,7 @@ public class SortStage implements UnaryPipelineStage {
      * Get the sort order.
      * @return the sort order
      */
-    public SortOrder getSortOrder() {
+    public SortOrderType getSortOrder() {
         return sortOrder;
     }
 
@@ -278,14 +261,14 @@ public class SortStage implements UnaryPipelineStage {
 
     @Override
     public void toXContent(XContentBuilder builder, ToXContent.Params params) throws IOException {
-        builder.field(SORT_BY_ARG, sortBy.getName());
-        builder.field(SORT_ORDER_ARG, sortOrder.getName());
+        builder.field(SORT_BY_ARG, sortBy.getValue());
+        builder.field(SORT_ORDER_ARG, sortOrder.getValue());
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(sortBy.getName());
-        out.writeString(sortOrder.getName());
+        out.writeString(sortBy.getValue());
+        out.writeString(sortOrder.getValue());
     }
 
     /**
@@ -299,8 +282,8 @@ public class SortStage implements UnaryPipelineStage {
         String sortByName = in.readString();
         String sortOrderName = in.readString();
 
-        SortBy sortBy = SortBy.fromString(sortByName);
-        SortOrder sortOrder = SortOrder.fromString(sortOrderName);
+        SortByType sortBy = SortByType.fromString(sortByName);
+        SortOrderType sortOrder = SortOrderType.fromString(sortOrderName);
 
         return new SortStage(sortBy, sortOrder);
     }
@@ -322,21 +305,21 @@ public class SortStage implements UnaryPipelineStage {
             throw new IllegalArgumentException("SortBy cannot be null");
         }
 
-        SortBy sortBy;
+        SortByType sortBy;
         if (sortByObj instanceof String sortByStr) {
-            sortBy = SortBy.fromString(sortByStr);
+            sortBy = SortByType.fromString(sortByStr);
         } else {
             throw new IllegalArgumentException(
                 "Invalid type for '" + SORT_BY_ARG + "' argument. Expected String, but got " + sortByObj.getClass().getSimpleName()
             );
         }
 
-        SortOrder sortOrder = SortOrder.DESC; // Default
+        SortOrderType sortOrder = SortOrderType.DESC; // Default
         if (args.containsKey(SORT_ORDER_ARG)) {
             Object sortOrderObj = args.get(SORT_ORDER_ARG);
             if (sortOrderObj != null) {
                 if (sortOrderObj instanceof String sortOrderStr) {
-                    sortOrder = SortOrder.fromString(sortOrderStr);
+                    sortOrder = SortOrderType.fromString(sortOrderStr);
                 } else {
                     throw new IllegalArgumentException(
                         "Invalid type for '"

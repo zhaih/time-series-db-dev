@@ -9,3 +9,6 @@ ROOT
       FUNCTION(sum)
       FUNCTION(alias)
         VALUE(total_count)
+      FUNCTION(sort)
+        VALUE(current)
+        VALUE(desc)

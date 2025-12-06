@@ -1,2 +1,3 @@
-HISTOGRAM_PERCENTILE(bucketid, bucket, [99.0])
-  FETCH({service=[api-server], name=[total_leaf_node_latency_histogram]}, !{})
+SORT(current, desc)
+  HISTOGRAM_PERCENTILE(bucketid, bucket, [99.0])
+    FETCH({service=[api-server], name=[total_leaf_node_latency_histogram]}, !{})

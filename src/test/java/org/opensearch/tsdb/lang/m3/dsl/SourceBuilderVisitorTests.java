@@ -15,6 +15,8 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.tsdb.core.utils.Constants;
 import org.opensearch.tsdb.lang.m3.common.AggregationType;
+import org.opensearch.tsdb.lang.m3.common.SortByType;
+import org.opensearch.tsdb.lang.m3.common.SortOrderType;
 import org.opensearch.tsdb.lang.m3.common.ValueFilterType;
 import org.opensearch.tsdb.lang.m3.common.WindowAggregationType;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.AbsPlanNode;
@@ -489,7 +491,7 @@ public class SourceBuilderVisitorTests extends OpenSearchTestCase {
      * Test SortPlanNode with correct number of children (1).
      */
     public void testSortPlanNodeWithOneChild() {
-        SortPlanNode planNode = new SortPlanNode(1, "avg", "desc");
+        SortPlanNode planNode = new SortPlanNode(1, SortByType.AVG, SortOrderType.DESC);
         planNode.addChild(createMockFetchNode(2));
 
         // Should not throw an exception
@@ -500,7 +502,7 @@ public class SourceBuilderVisitorTests extends OpenSearchTestCase {
      * Test SortPlanNode with incorrect number of children (0).
      */
     public void testSortPlanNodeWithNoChildren() {
-        SortPlanNode planNode = new SortPlanNode(1, "value", "desc");
+        SortPlanNode planNode = new SortPlanNode(1, SortByType.SUM, SortOrderType.DESC);
 
         IllegalStateException exception = expectThrows(IllegalStateException.class, () -> visitor.visit(planNode));
         assertEquals("SortPlanNode must have exactly one child", exception.getMessage());

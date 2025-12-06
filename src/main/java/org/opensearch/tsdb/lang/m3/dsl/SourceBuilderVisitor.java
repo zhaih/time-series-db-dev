@@ -465,10 +465,7 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
         validateChildCountExact(planNode, 1);
 
         // SortStage is a global aggregation that should be used as a coordinator stage
-        SortStage sortStage = new SortStage(
-            SortStage.SortBy.fromString(planNode.getSortBy()),
-            SortStage.SortOrder.fromString(planNode.getSortOrder())
-        );
+        SortStage sortStage = new SortStage(planNode.getSortBy(), planNode.getSortOrder());
         stageStack.add(sortStage);
 
         return planNode.getChildren().getFirst().accept(this);

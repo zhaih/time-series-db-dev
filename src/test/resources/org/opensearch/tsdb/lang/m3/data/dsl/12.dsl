@@ -181,6 +181,11 @@
           {
             "type" : "as_percent",
             "right_op_reference" : "2"
+          },
+          {
+            "type" : "sort",
+            "sortBy" : "avg",
+            "sortOrder" : "asc"
           }
         ],
         "references" : {
