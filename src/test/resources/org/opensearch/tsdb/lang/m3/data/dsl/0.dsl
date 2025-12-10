@@ -106,7 +106,7 @@
           },
           {
             "type" : "value_filter",
-            "operator" : "GE",
+            "operator" : "ge",
             "target_value" : 5.0
           },
           {

@@ -335,6 +335,8 @@ public class TimeSeriesCoordinatorAggregationBuilder extends AbstractPipelineAgg
                                     // Parse stage-specific arguments
                                     if (token == XContentParser.Token.VALUE_STRING) {
                                         stageArgs.put(fieldName, parser.text());
+                                    } else if (token == XContentParser.Token.VALUE_BOOLEAN) {
+                                        stageArgs.put(fieldName, parser.booleanValue());
                                     } else if (token == XContentParser.Token.VALUE_NUMBER) {
                                         if (parser.numberType() == XContentParser.NumberType.INT) {
                                             stageArgs.put(fieldName, parser.intValue());

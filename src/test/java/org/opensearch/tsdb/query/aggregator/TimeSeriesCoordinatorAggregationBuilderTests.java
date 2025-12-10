@@ -402,4 +402,103 @@ public class TimeSeriesCoordinatorAggregationBuilderTests extends OpenSearchTest
         }
     }
 
+    /**
+     * Test parsing coordinator with boolean values in stages.
+     * This tests the fix that allows parsing boolean values in stage arguments.
+     */
+    public void testParseStagesWithBooleanValues() throws Exception {
+        String json = """
+            {
+              "stages": [
+                {
+                  "type": "subtract",
+                  "keep_nans": false,
+                  "right_op_reference": "4"
+                },
+                {
+                  "type": "value_filter",
+                  "operator": "ge",
+                  "target_value": 200000000
+                }
+              ],
+              "references": {
+                "0": "0_coordinator",
+                "4": "4_coordinator"
+              },
+              "inputReference": "0"
+            }
+            """;
+
+        try (XContentParser parser = createParser(JsonXContent.jsonXContent, json)) {
+            parser.nextToken(); // Move to START_OBJECT
+
+            TimeSeriesCoordinatorAggregationBuilder result = TimeSeriesCoordinatorAggregationBuilder.parse("coord_with_boolean", parser);
+
+            assertEquals("coord_with_boolean", result.getName());
+            assertEquals("Should have 2 stages", 2, result.getStages().size());
+            assertEquals("Should have 2 references", 2, result.getReferences().size());
+            assertEquals("Reference '0' should point to '0_coordinator'", "0_coordinator", result.getReferences().get("0"));
+            assertEquals("Reference '4' should point to '4_coordinator'", "4_coordinator", result.getReferences().get("4"));
+            assertEquals("Input reference should be '0'", "0", result.getInputReference());
+        }
+    }
+
+    /**
+     * Test parsing a real-world complex aggregation configuration with multiple coordinator pipelines.
+     * This is a comprehensive test that ensures the parser can handle complex nested structures
+     * including boolean values, multiple references, and various stage types.
+     */
+    public void testParseRealWorldComplexAggregation() throws Exception {
+        String json = """
+            {
+              "buckets_path": [],
+              "stages": [
+                {
+                  "type": "subtract",
+                  "keep_nans": false,
+                  "right_op_reference": "4"
+                },
+                {
+                  "type": "value_filter",
+                  "operator": "ge",
+                  "target_value": 200000000
+                },
+                {
+                  "type": "remove_empty"
+                },
+                {
+                  "type": "alias_by_tags",
+                  "tag_names": [
+                    "namespace"
+                  ]
+                }
+              ],
+              "references": {
+                "0": "0_coordinator",
+                "4": "4_coordinator"
+              },
+              "inputReference": "0"
+            }
+            """;
+
+        try (XContentParser parser = createParser(JsonXContent.jsonXContent, json)) {
+            parser.nextToken(); // Move to START_OBJECT
+
+            TimeSeriesCoordinatorAggregationBuilder result = TimeSeriesCoordinatorAggregationBuilder.parse("9", parser);
+
+            // Verify basic properties
+            assertEquals("9", result.getName());
+            assertEquals("Should have 4 stages", 4, result.getStages().size());
+            assertEquals("Should have 2 references", 2, result.getReferences().size());
+            assertEquals("Input reference should be '0'", "0", result.getInputReference());
+
+            // Verify references
+            assertEquals("Reference '0' should point to '0_coordinator'", "0_coordinator", result.getReferences().get("0"));
+            assertEquals("Reference '4' should point to '4_coordinator'", "4_coordinator", result.getReferences().get("4"));
+
+            // Verify the builder can be used to create an aggregator (validation passes)
+            assertNotNull("Should be able to create aggregator", result.createInternal(Map.of()));
+        }
+    }
+
 }

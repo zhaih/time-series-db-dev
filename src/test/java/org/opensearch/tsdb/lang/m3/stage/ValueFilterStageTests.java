@@ -219,6 +219,51 @@ public class ValueFilterStageTests extends AbstractWireSerializingTestCase<Value
         assertTrue("JSON should contain 10.5", json.contains("10.5"));
     }
 
+    /**
+     * Test round-trip serialization: toXContent -> parse -> fromArgs
+     * This ensures that the JSON produced by toXContent can be parsed back
+     * using fromArgs to recreate an equivalent stage.
+     */
+    public void testToXContentRoundTrip() throws IOException {
+        // Test all operator types to ensure round-trip works for each
+        ValueFilterType[] operators = ValueFilterType.values();
+
+        for (ValueFilterType operator : operators) {
+            // Create original stage
+            ValueFilterStage original = new ValueFilterStage(operator, 42.5);
+
+            // Serialize to JSON
+            XContentBuilder builder = XContentFactory.jsonBuilder();
+            builder.startObject();
+            original.toXContent(builder, ToXContent.EMPTY_PARAMS);
+            builder.endObject();
+
+            // Parse the JSON back to a map
+            String json = builder.toString();
+            Map<String, Object> args;
+            try (var parser = createParser(org.opensearch.common.xcontent.json.JsonXContent.jsonXContent, json)) {
+                args = parser.map();
+            }
+
+            // Recreate the stage from the parsed args
+            ValueFilterStage deserialized = ValueFilterStage.fromArgs(args);
+
+            // Verify they're equal
+            assertEquals(
+                "Round-trip failed for operator " + operator + ": operators don't match",
+                original.getOperator(),
+                deserialized.getOperator()
+            );
+            assertEquals(
+                "Round-trip failed for operator " + operator + ": target values don't match",
+                original.getTargetValue(),
+                deserialized.getTargetValue(),
+                0.001
+            );
+            assertEquals("Round-trip failed for operator " + operator + ": stages not equal", original, deserialized);
+        }
+    }
+
     // ========== FromArgs Tests ==========
 
     public void testFromArgsValid() {

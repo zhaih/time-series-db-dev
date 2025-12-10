@@ -15,32 +15,46 @@ public enum ValueFilterType {
     /**
      * Equal to
      */
-    EQ,
+    EQ("eq"),
 
     /**
      * Not equal to
      */
-    NE,
+    NE("ne"),
 
     /**
      * Greater than
      */
-    GT,
+    GT("gt"),
 
     /**
      * Greater than or equal to
      */
-    GE,
+    GE("ge"),
 
     /**
      * Less than
      */
-    LT,
+    LT("lt"),
 
     /**
      * Less than or equal to
      */
-    LE;
+    LE("le");
+
+    private final String value;
+
+    ValueFilterType(String value) {
+        this.value = value;
+    }
+
+    /**
+     * Gets the string value for this enum
+     * @return The lowercase string value (e.g., "ge", "ne", "eq")
+     */
+    public String getValue() {
+        return value;
+    }
 
     /**
      * Parse a string into an Operator enum value.

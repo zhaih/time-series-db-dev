@@ -144,7 +144,7 @@ public class ValueFilterStage implements UnaryPipelineStage {
 
     @Override
     public void toXContent(XContentBuilder builder, ToXContent.Params params) throws IOException {
-        builder.field(OPERATOR_ARG, operator.name());
+        builder.field(OPERATOR_ARG, operator.getValue());
         builder.field(TARGET_VALUE_ARG, targetValue);
     }
 
