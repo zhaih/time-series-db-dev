@@ -298,7 +298,7 @@ public class HistogramPercentileStageTests extends AbstractWireSerializingTestCa
     }
 
     /**
-     * Test invalid bucket range format.
+     * Test invalid bucket range format throws exception.
      */
     public void testInvalidBucketRange() {
         HistogramPercentileStage stage = new HistogramPercentileStage("bucketId", "bucket", List.of(50.0f));
@@ -318,11 +318,8 @@ public class HistogramPercentileStageTests extends AbstractWireSerializingTestCa
         TimeSeries series = new TimeSeries(samples, labels, 1000L, 1000L, 1000L, null);
         input.add(series);
 
-        // Execute - should not throw, but should skip invalid series
-        List<TimeSeries> result = stage.process(input);
-
-        // Verify - should have no results due to invalid bucket range
-        assertEquals(0, result.size());
+        // Execute - should throw exception for invalid bucket range
+        assertThrows(IllegalArgumentException.class, () -> stage.process(input));
     }
 
     /**
@@ -608,7 +605,7 @@ public class HistogramPercentileStageTests extends AbstractWireSerializingTestCa
     }
 
     public void testBucketInfoInvalidRange() {
-        // Test that invalid bucket ranges are handled gracefully
+        // Test that invalid bucket ranges throw exception
         List<TimeSeries> input = new ArrayList<>();
         Map<String, String> labels = new HashMap<>();
         labels.put("service", "test");
@@ -620,10 +617,9 @@ public class HistogramPercentileStageTests extends AbstractWireSerializingTestCa
         input.add(series);
 
         HistogramPercentileStage stage = new HistogramPercentileStage("bucketId", "bucket", List.of(95.0f));
-        List<TimeSeries> result = stage.process(input);
 
-        // Should return empty result due to invalid bucket range
-        assertEquals(0, result.size());
+        // Should throw exception for invalid bucket range
+        assertThrows(IllegalArgumentException.class, () -> stage.process(input));
     }
 
     public void testBucketInfoEqualsAndHashCode() {
@@ -804,6 +800,12 @@ public class HistogramPercentileStageTests extends AbstractWireSerializingTestCa
         HistogramPercentileStage.BucketInfo zeroToInf = new HistogramPercentileStage.BucketInfo("b16", "0-infinity");
         assertEquals(0.0, zeroToInf.getLowerBound(), 0.001);
         assertEquals(0.0, zeroToInf.getUpperBound(), 0.001); // For infinity buckets, upper bound equals lower bound
+
+        // Test duration with negative infinity (-infinity lowercase)
+        HistogramPercentileStage.BucketInfo negInfinityBucket = new HistogramPercentileStage.BucketInfo("b17", "-infinity-2ms");
+        double expectedNegInfinityMs = Long.MIN_VALUE / 1_000_000.0; // Convert nanoseconds to milliseconds
+        assertEquals(expectedNegInfinityMs, negInfinityBucket.getLowerBound(), 0.001);
+        assertEquals(2.0, negInfinityBucket.getUpperBound(), 0.001);
     }
 
     public void testBucketInfoZeroDuration() {
@@ -892,6 +894,11 @@ public class HistogramPercentileStageTests extends AbstractWireSerializingTestCa
         assertEquals(Double.NEGATIVE_INFINITY, negativeInfToZero.getLowerBound(), 0.001);
         assertEquals(0, negativeInfToZero.getUpperBound(), 0.001);
 
+        // Test -infinity (lowercase) to zero - this should be a valid value range
+        HistogramPercentileStage.BucketInfo negativeInfinityToZero = new HistogramPercentileStage.BucketInfo("edge2b", "-infinity-0");
+        assertEquals(Double.NEGATIVE_INFINITY, negativeInfinityToZero.getLowerBound(), 0.001);
+        assertEquals(0, negativeInfinityToZero.getUpperBound(), 0.001);
+
         // Test positive value to +Inf
         HistogramPercentileStage.BucketInfo posValueToPosInf = new HistogramPercentileStage.BucketInfo("edge3", "10ms-+Inf");
         assertEquals(10.0, posValueToPosInf.getLowerBound(), 0.001);
@@ -930,6 +937,63 @@ public class HistogramPercentileStageTests extends AbstractWireSerializingTestCa
     public void testNullInputThrowsException() {
         HistogramPercentileStage stage = new HistogramPercentileStage("bucketid", "bucket", List.of(99.0f));
         TestUtils.assertNullInputThrowsException(stage, "histogram_percentile");
+    }
+
+    /**
+     * Test percentile calculation with -infinity-2ms bucket.
+     * Verifies that the upper bound of the -infinity-2ms bucket (2.0) is returned instead of null.
+     * Based on scenario: bucket=-infinity-2ms with count=24, and other buckets (2ms-4ms, 4ms-6ms, 6ms-8ms) with count=0.
+     */
+    public void testPercentileWithNegativeInfinityBucket() {
+        HistogramPercentileStage stage = new HistogramPercentileStage("bucketid", "bucket", List.of(50.0f));
+
+        List<TimeSeries> input = new ArrayList<>();
+        long timestamp = 1000L;
+
+        // Create 4 time series matching the scenario from the image:
+        // 1. -infinity-2ms bucket with count=24
+        ByteLabels labels1 = ByteLabels.fromStrings("uber_region", "phx", "bucketid", "0000", "bucket", "-infinity-2ms");
+        List<Sample> samples1 = List.of(new FloatSample(timestamp, 24.0));
+        TimeSeries series1 = new TimeSeries(samples1, labels1, timestamp, timestamp, 1000L, null);
+        input.add(series1);
+
+        // 2. 2ms-4ms bucket with count=0
+        ByteLabels labels2 = ByteLabels.fromStrings("uber_region", "phx", "bucketid", "0001", "bucket", "2ms-4ms");
+        List<Sample> samples2 = List.of(new FloatSample(timestamp, 0.0));
+        TimeSeries series2 = new TimeSeries(samples2, labels2, timestamp, timestamp, 1000L, null);
+        input.add(series2);
+
+        // 3. 4ms-6ms bucket with count=0
+        ByteLabels labels3 = ByteLabels.fromStrings("uber_region", "phx", "bucketid", "0002", "bucket", "4ms-6ms");
+        List<Sample> samples3 = List.of(new FloatSample(timestamp, 0.0));
+        TimeSeries series3 = new TimeSeries(samples3, labels3, timestamp, timestamp, 1000L, null);
+        input.add(series3);
+
+        // 4. 6ms-8ms bucket with count=0
+        ByteLabels labels4 = ByteLabels.fromStrings("uber_region", "phx", "bucketid", "0003", "bucket", "6ms-8ms");
+        List<Sample> samples4 = List.of(new FloatSample(timestamp, 0.0));
+        TimeSeries series4 = new TimeSeries(samples4, labels4, timestamp, timestamp, 1000L, null);
+        input.add(series4);
+
+        // Execute
+        List<TimeSeries> result = stage.process(input);
+
+        // Verify
+        assertEquals(1, result.size()); // One result series for P50
+        TimeSeries p50Series = result.get(0);
+
+        // Check labels
+        assertTrue(p50Series.getLabels().has("histogramPercentile"));
+        assertEquals("p50", p50Series.getLabels().get("histogramPercentile"));
+        assertEquals("phx", p50Series.getLabels().get("uber_region"));
+
+        // Check P50 value
+        // Total count = 24, P50 target = 12 (50% of 24)
+        // Cumulative: 24 at -infinity-2ms bucket
+        // So P50 falls in the -infinity-2ms bucket, upper bound = 2.0ms
+        List<Sample> samples = p50Series.getSamples();
+        assertEquals(1, samples.size());
+        assertEquals(2.0, ((FloatSample) samples.get(0)).getValue(), 0.001);
     }
 
 }

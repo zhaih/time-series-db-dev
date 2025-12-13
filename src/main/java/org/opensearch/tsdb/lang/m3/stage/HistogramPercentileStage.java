@@ -289,23 +289,32 @@ public class HistogramPercentileStage implements UnaryPipelineStage {
             String bucketIdValue = seriesLabelsMap.get(bucketId);
             String bucketRangeValue = seriesLabelsMap.get(bucketRange);
 
+            BucketInfo bucketInfo;
             try {
-                BucketInfo bucketInfo = new BucketInfo(bucketIdValue, bucketRangeValue);
-
-                for (Sample sample : series.getSamples()) {
-                    long timestamp = sample.getTimestamp();
-                    double value = sample.getValue();
-
-                    // Cardinality of bucketInfoValueMap depends on how many unique buckets are defined in the histogram
-                    Map<BucketInfo, Double> bucketInfoValueMap = timestampToBuckets.computeIfAbsent(timestamp, k -> new HashMap<>());
-                    if (bucketInfoValueMap.containsKey(bucketInfo)) {
-                        throw new IllegalStateException("already seen range" + bucketInfo + " Histogram buckets may have changed");
-                    } else {
-                        bucketInfoValueMap.put(bucketInfo, value);
-                    }
-                }
+                bucketInfo = new BucketInfo(bucketIdValue, bucketRangeValue);
             } catch (IllegalArgumentException e) {
-                // Skip series with invalid bucket range format
+                throw new IllegalArgumentException(
+                    "Failed to parse bucket range '"
+                        + bucketRangeValue
+                        + "' for bucketId '"
+                        + bucketIdValue
+                        + "' in histogram percentile calculation: "
+                        + e.getMessage(),
+                    e
+                );
+            }
+
+            for (Sample sample : series.getSamples()) {
+                long timestamp = sample.getTimestamp();
+                double value = sample.getValue();
+
+                // Cardinality of bucketInfoValueMap depends on how many unique buckets are defined in the histogram
+                Map<BucketInfo, Double> bucketInfoValueMap = timestampToBuckets.computeIfAbsent(timestamp, k -> new HashMap<>());
+                if (bucketInfoValueMap.containsKey(bucketInfo)) {
+                    throw new IllegalStateException("already seen range" + bucketInfo + " Histogram buckets may have changed");
+                } else {
+                    bucketInfoValueMap.put(bucketInfo, value);
+                }
             }
         }
 
@@ -615,7 +624,7 @@ public class HistogramPercentileStage implements UnaryPipelineStage {
             try {
                 double low;
                 double high;
-                if ("-Inf".equals(left)) {
+                if ("-Inf".equals(left) || "-infinity".equals(left)) {
                     low = Double.NEGATIVE_INFINITY;
                 } else {
                     low = Double.parseDouble(left);
@@ -646,7 +655,7 @@ public class HistogramPercentileStage implements UnaryPipelineStage {
                 // Handle special cases
                 if ("0".equals(left)) {
                     low = Duration.ZERO;
-                } else if ("-Inf".equals(left)) {
+                } else if ("-Inf".equals(left) || "-infinity".equals(left)) {
                     // negative infinity : use the minimal duration possible (–9223372036854775808 nanoseconds (~–292.47 years))
                     low = Duration.ofNanos(Long.MIN_VALUE);
                 } else {
