@@ -8,6 +8,7 @@
 package org.opensearch.tsdb.core.index.closed;
 
 import org.apache.lucene.index.IndexCommit;
+import org.apache.lucene.store.AlreadyClosedException;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.index.shard.ShardId;
@@ -41,7 +42,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 
 public class ClosedChunkIndexManagerTests extends OpenSearchTestCase {
@@ -566,5 +569,52 @@ public class ClosedChunkIndexManagerTests extends OpenSearchTestCase {
                 }
             }
         }
+    }
+
+    public void testCommitChangedIndexesThrowsAfterClose() throws Exception {
+        Path tempDir = createTempDir("testCommitChangedIndexesThrowsAfterClose");
+        ClosedChunkIndexManager manager = new ClosedChunkIndexManager(
+            tempDir,
+            new InMemoryMetadataStore(),
+            new NOOPRetention(),
+            new NoopCompaction(),
+            threadPool,
+            new ShardId("index", "uuid", 0),
+            defaultSettings
+        );
+
+        Labels labels = ByteLabels.fromStrings("label1", "value1");
+        MemSeries series = new MemSeries(0, labels);
+        manager.addMemChunk(series, TestUtils.getMemChunk(5, 0, 1500));
+
+        CountDownLatch commitStartLatch = new CountDownLatch(1);
+        AtomicReference<Exception> commitException = new AtomicReference<>();
+
+        Thread closeThread = new Thread(() -> {
+            try {
+                manager.close();
+                commitStartLatch.countDown();
+            } catch (Exception e) {
+                // Ignore
+            }
+        });
+
+        Thread commitThread = new Thread(() -> {
+            try {
+                commitStartLatch.await();
+                manager.commitChangedIndexes(List.of(series));
+            } catch (Exception e) {
+                commitException.set(e);
+            }
+        });
+
+        closeThread.start();
+        commitThread.start();
+
+        closeThread.join();
+        commitThread.join();
+
+        assertNotNull("Commit should have thrown an exception", commitException.get());
+        assertTrue("Exception should be AlreadyClosedException", commitException.get() instanceof AlreadyClosedException);
     }
 }

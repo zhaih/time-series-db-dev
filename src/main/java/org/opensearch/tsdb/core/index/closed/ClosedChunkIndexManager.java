@@ -53,6 +53,7 @@ import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
@@ -108,6 +109,7 @@ public class ClosedChunkIndexManager implements Closeable {
 
     // Duration of each block
     private final long blockDuration;
+    private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
     /**
      * Constructor for ClosedChunkIndexManager
@@ -156,6 +158,16 @@ public class ClosedChunkIndexManager implements Closeable {
             TSDBPlugin.TSDB_ENGINE_BLOCK_DURATION.get(settings),
             TimeUnit.valueOf(TSDBPlugin.TSDB_ENGINE_TIME_UNIT.get(settings))
         );
+    }
+
+    /**
+     * Ensures the manager is still open.
+     * @throws AlreadyClosedException if the manager has been closed
+     */
+    private void ensureOpen() {
+        if (this.isClosed.get()) {
+            throw new AlreadyClosedException("ClosedChunkIndexManager is closed");
+        }
     }
 
     // visible for testing.
@@ -431,6 +443,7 @@ public class ClosedChunkIndexManager implements Closeable {
         for (Path path : currentPaths) {
             if (!livePaths.contains(path)) {
                 org.opensearch.tsdb.core.utils.Files.deleteDirectory(path.toAbsolutePath());
+                log.info("Deleted orphan directory: {}", path);
             }
         }
     }
@@ -604,6 +617,7 @@ public class ClosedChunkIndexManager implements Closeable {
                 pendingChunksToSeriesMMapTimestamps.remove(index);
             }
 
+            ensureOpen();
             try (XContentBuilder builder = XContentFactory.jsonBuilder()) {
                 builder.startObject();
                 builder.array(INDEX_METADATA_KEY, indexMetadata.toArray(new String[0]));
@@ -714,15 +728,18 @@ public class ClosedChunkIndexManager implements Closeable {
      * Closes all indexes and releases resources.
      */
     public void close() {
-        lock.lock();
-        try {
-            mgmtTaskScheduler.cancel();
-            IOUtils.close(closedChunkIndexMap.values());
-            closedChunkIndexMap.clear();
-        } catch (IOException e) {
-            throw ExceptionsHelper.convertToRuntime(e);
-        } finally {
-            lock.unlock();
+        if (isClosed.compareAndSet(false, true)) {
+            lock.lock();
+            try {
+                mgmtTaskScheduler.cancel();
+                IOUtils.close(closedChunkIndexMap.values());
+                closedChunkIndexMap.clear();
+            } catch (IOException e) {
+                // TODO: emit metric on close failure
+                throw ExceptionsHelper.convertToRuntime(e);
+            } finally {
+                lock.unlock();
+            }
         }
     }
 

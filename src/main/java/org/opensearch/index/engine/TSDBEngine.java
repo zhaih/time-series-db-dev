@@ -582,6 +582,7 @@ public class TSDBEngine extends Engine {
      */
     @Override
     public void flush(boolean force, boolean waitIfOngoing) throws EngineException {
+        this.ensureOpen();
         // acquire closeChunksLock based on waitIfOngoing flag
         // tryLock() respects the commit interval - it will return false if interval hasn't elapsed
         if (!closeChunksLock.tryLock()) {
@@ -1163,6 +1164,7 @@ public class TSDBEngine extends Engine {
                     head.close();
                 }
             } catch (Exception e) {
+                // TODO: emit metric on close failure
                 logger.warn("Error closing TSDBEngine", e);
             } finally {
                 try {
