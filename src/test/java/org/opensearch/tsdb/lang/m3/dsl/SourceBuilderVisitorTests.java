@@ -69,6 +69,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.opensearch.core.xcontent.ToXContent.EMPTY_PARAMS;
+import static org.opensearch.tsdb.lang.m3.dsl.SourceBuilderVisitor.buildQueryForFetch;
 
 /**
  * Unit tests for SourceBuilderVisitor.
@@ -758,6 +759,23 @@ public class SourceBuilderVisitorTests extends OpenSearchTestCase {
 
         IllegalStateException exception = expectThrows(IllegalStateException.class, () -> visitor.visit(planNode));
         assertEquals("UnionPlanNode must have at least two children", exception.getMessage());
+    }
+
+    /**
+     * Test showing that with two different branch but the same fetch node, the query should be deduplicated
+     */
+    public void testFilterQueryDedup() {
+        UnionPlanNode planNode = new UnionPlanNode(0);
+        ScalePlanNode scalePlanNode = new ScalePlanNode(1, 10);
+        FetchPlanNode fetchPlanNode = createMockFetchNode(2);
+        scalePlanNode.addChild(fetchPlanNode);
+        ScalePlanNode scalePlanNode2 = new ScalePlanNode(3, 20);
+        scalePlanNode2.addChild(createMockFetchNode(4));
+        planNode.addChild(scalePlanNode);
+        planNode.addChild(scalePlanNode2);
+
+        SourceBuilderVisitor.ComponentHolder ch = visitor.visit(planNode);
+        assertEquals(buildQueryForFetch(fetchPlanNode, new SourceBuilderVisitor.TimeRange(1000000L, 2000000L)), ch.getFullQuery());
     }
 
     /**

@@ -105,11 +105,14 @@ import org.opensearch.tsdb.query.utils.AggregationConstants;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Set;
 import java.util.Stack;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -324,7 +327,7 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
         QueryBuilder query = buildQueryForFetch(planNode, fetchTimeRange);
 
         // Set the query for the FetchPlanNode
-        holder.setQuery(query);
+        holder.addQuery(query);
 
         CacheableUnfoldAggregation cacheEntry = new CacheableUnfoldAggregation(query, unfoldStages, fetchTimeRange);
 
@@ -745,7 +748,8 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
         throw new IllegalArgumentException("Unsupported plan node type for binary operation: " + planNode.getClass().getSimpleName());
     }
 
-    private QueryBuilder buildQueryForFetch(FetchPlanNode planNode, TimeRange range) {
+    /* package-private for test purpose */
+    static QueryBuilder buildQueryForFetch(FetchPlanNode planNode, TimeRange range) {
         // In the format field => [value1, value2, ...]
         Map<String, List<String>> matchFilters = planNode.getMatchFilters();
         Map<String, List<String>> inverseMatchFilters = planNode.getInverseMatchFilters();
@@ -776,7 +780,7 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
         return new TimeRangePruningQueryBuilder(boolQuery, range.start, range.end);
     }
 
-    private QueryBuilder createFieldQuery(String field, List<String> values) {
+    static private QueryBuilder createFieldQuery(String field, List<String> values) {
         // If multiple values, build a should query (OR)
         if (values.size() == 1) {
             String value = values.getFirst();
@@ -823,7 +827,7 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
         }
     }
 
-    private boolean containsWildcard(String value) {
+    private static boolean containsWildcard(String value) {
         for (int i = 0, len = value.length(); i < len; i++) {
             char c = value.charAt(i);
             if (c == MULTI_CHAR_WILDCARD || c == SINGLE_CHAR_WILDCARD) {
@@ -833,7 +837,7 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
         return false;
     }
 
-    private String labelFilterString(String label, String filter) {
+    private static String labelFilterString(String label, String filter) {
         return label + LabelConstants.LABEL_DELIMITER + filter;
     }
 
@@ -855,7 +859,8 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
         return new TimeRange(adjustedStart, adjustedEnd);
     }
 
-    private record TimeRange(long start, long end) {
+    /* package-private for testing purpose */
+    record TimeRange(long start, long end) {
     }
 
     /**
@@ -896,21 +901,22 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
         private final int id;
         private final List<FilterAggregationBuilder> filterAggregationBuilders;
         private final List<TimeSeriesCoordinatorAggregationBuilder> pipelineAggregationBuilders;
+        private final Set<QueryBuilder> dnfQueries; // disjunctive normal form of fetch queries
         private TimeSeriesUnfoldAggregationBuilder unfoldAggregationBuilder;
-        private QueryBuilder query;
 
         public ComponentHolder(int id) {
             this.id = id;
             this.filterAggregationBuilders = new ArrayList<>();
             this.pipelineAggregationBuilders = new ArrayList<>();
+            this.dnfQueries = new LinkedHashSet<>(); // preserve the order to make writing test easier
         }
 
-        public void setQuery(QueryBuilder query) {
-            this.query = query;
+        public void addQuery(QueryBuilder queryBuilder) {
+            this.dnfQueries.add(queryBuilder);
         }
 
-        public QueryBuilder getQuery() {
-            return query;
+        public QueryBuilder getFullQuery() {
+            return getMergedQuery(dnfQueries);
         }
 
         public int getId() {
@@ -921,7 +927,6 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
             assert holders.length >= 2 : "should only merge multiple ComponentHolders";
 
             ComponentHolder merged = new ComponentHolder(id);
-            List<QueryBuilder> filteredQueries = new ArrayList<>();
 
             // Collect filtered aggregations (per unfolds)
             for (ComponentHolder holder : holders) {
@@ -929,14 +934,17 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
                 if (!holder.getFilterAggregationBuilders().isEmpty()) {
                     for (FilterAggregationBuilder existing : holder.getFilterAggregationBuilders()) {
                         merged.addFilterAggregationBuilder(existing); // lift the existing FilterAggregationBuilder
-                        filteredQueries.add(existing.getFilter()); // collect the existing Filter, to merge later
+                        merged.addQuery(existing.getFilter());
                     }
                 } else if (holder.getUnfoldAggregationBuilder() != null) {
                     // the unfold aggregation builder could be null as we may just refer to a cached unfold aggregation
-                    FilterAggregationBuilder filterAgg = new FilterAggregationBuilder(String.valueOf(holder.getId()), holder.getQuery());
+                    FilterAggregationBuilder filterAgg = new FilterAggregationBuilder(
+                        String.valueOf(holder.getId()),
+                        holder.getFullQuery()
+                    );
                     filterAgg.subAggregation(holder.getUnfoldAggregationBuilder());
                     merged.addFilterAggregationBuilder(filterAgg);
-                    filteredQueries.add(holder.getQuery());
+                    merged.addQuery(filterAgg.getFilter());
                 }
 
                 // Lift all PipelineAggregationBuilders if present
@@ -967,13 +975,14 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
                 }
             }
 
-            merged.setQuery(getMergedQuery(filteredQueries));
             return merged;
         }
 
-        // TODO: explore flattening the merged queries to avoid executing repeated clauses multiple times,
         // TODO: explore using matchAll (with filtered aggs doing post-filtering)
-        private static QueryBuilder getMergedQuery(List<QueryBuilder> queries) {
+        private static QueryBuilder getMergedQuery(Collection<QueryBuilder> queries) {
+            if (queries.size() == 1) {
+                return queries.iterator().next();
+            }
             BoolQueryBuilder mergedQuery = QueryBuilders.boolQuery();
             for (QueryBuilder qb : queries) {
                 mergedQuery.should(qb);
@@ -1009,7 +1018,7 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
         public SearchSourceBuilder toSearchSourceBuilder() {
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
             searchSourceBuilder.size(0);
-            searchSourceBuilder.query(query);
+            searchSourceBuilder.query(getFullQuery());
 
             if (unfoldAggregationBuilder != null) {
                 searchSourceBuilder.aggregation(unfoldAggregationBuilder);
