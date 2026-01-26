@@ -28,10 +28,12 @@ import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.BinaryPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.ExcludeByTagPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.TagSubPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.FallbackSeriesBinaryPlanNode;
+import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.DerivativePlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.FallbackSeriesConstantPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.FetchPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.HeadPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.HistogramPercentilePlanNode;
+import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.IntegralPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.IsNonNullPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.KeepLastValuePlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.MovingPlanNode;
@@ -563,6 +565,17 @@ public class SourceBuilderVisitorTests extends OpenSearchTestCase {
     }
 
     /**
+     * Test DerivativePlanNode with correct number of children (1).
+     */
+    public void testDerivativePlanNodeWithOneChild() {
+        DerivativePlanNode planNode = new DerivativePlanNode(1);
+        planNode.addChild(createMockFetchNode(2));
+
+        // Should not throw an exception
+        assertNotNull(visitor.visit(planNode));
+    }
+
+    /**
      * Test HeadPlanNode with correct number of children (1).
      */
     public void testHeadPlanNodeWithOneChild() {
@@ -571,6 +584,16 @@ public class SourceBuilderVisitorTests extends OpenSearchTestCase {
 
         // Should not throw an exception
         assertNotNull(visitor.visit(planNode));
+    }
+
+    /**
+     * Test DerivativePlanNode with incorrect number of children (0).
+     */
+    public void testDerivativePlanNodeWithNoChildren() {
+        DerivativePlanNode planNode = new DerivativePlanNode(1);
+
+        IllegalStateException exception = expectThrows(IllegalStateException.class, () -> visitor.visit(planNode));
+        assertEquals("DerivativePlanNode must have exactly one child", exception.getMessage());
     }
 
     /**
@@ -602,6 +625,26 @@ public class SourceBuilderVisitorTests extends OpenSearchTestCase {
 
         IllegalStateException exception = expectThrows(IllegalStateException.class, () -> visitor.visit(planNode));
         assertEquals("HistogramPercentilePlanNode must have exactly one child", exception.getMessage());
+    }
+
+    /**
+     * Test IntegralPlanNode with correct number of children (1).
+     */
+    public void testIntegralPlanNodeWithOneChild() {
+        IntegralPlanNode planNode = new IntegralPlanNode(1, true);
+        planNode.addChild(createMockFetchNode(2));
+
+        assertNotNull(visitor.visit(planNode));
+    }
+
+    /**
+     * Test IntegralPlanNode with incorrect number of children (0).
+     */
+    public void testIntegralPlanNodeWithNoChildren() {
+        IntegralPlanNode planNode = new IntegralPlanNode(1, false);
+
+        IllegalStateException exception = expectThrows(IllegalStateException.class, () -> visitor.visit(planNode));
+        assertEquals("IntegralPlanNode must have exactly one child", exception.getMessage());
     }
 
     /**

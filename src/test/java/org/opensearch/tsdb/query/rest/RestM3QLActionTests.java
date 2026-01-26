@@ -504,7 +504,7 @@ public class RestM3QLActionTests extends OpenSearchTestCase {
     public void testKnownUnimplementedFunctionReturnsHttp501() throws Exception {
         FakeRestRequest request = new FakeRestRequest.Builder(xContentRegistry()).withMethod(RestRequest.Method.GET)
             .withPath("/_m3ql")
-            .withParams(Map.of("query", "fetch service:api | derivative"))
+            .withParams(Map.of("query", "fetch service:api | logarithm"))
             .build();
         FakeRestChannel channel = new FakeRestChannel(request, true, 1);
 
@@ -514,13 +514,13 @@ public class RestM3QLActionTests extends OpenSearchTestCase {
         String responseContent = channel.capturedResponse().content().utf8ToString();
         assertThat(responseContent, containsString("error"));
         assertThat(responseContent, containsString("not implemented"));
-        assertThat(responseContent, containsString("derivative"));
+        assertThat(responseContent, containsString("logarithm"));
     }
 
     public void testKnownUnimplementedFunctionWithExplainMode() throws Exception {
         FakeRestRequest request = new FakeRestRequest.Builder(xContentRegistry()).withMethod(RestRequest.Method.GET)
             .withPath("/_m3ql")
-            .withParams(Map.of("query", "fetch service:api | integral", "explain", "true"))
+            .withParams(Map.of("query", "fetch service:api | constantLine", "explain", "true"))
             .build();
         FakeRestChannel channel = new FakeRestChannel(request, true, 1);
 
@@ -530,7 +530,7 @@ public class RestM3QLActionTests extends OpenSearchTestCase {
         assertThat(channel.capturedResponse().status(), equalTo(RestStatus.NOT_IMPLEMENTED));
         String responseContent = channel.capturedResponse().content().utf8ToString();
         assertThat(responseContent, containsString("not implemented"));
-        assertThat(responseContent, containsString("integral"));
+        assertThat(responseContent, containsString("constantLine"));
     }
 
     public void testUnknownFunctionReturnsHttp400() throws Exception {
@@ -1013,7 +1013,7 @@ public class RestM3QLActionTests extends OpenSearchTestCase {
         // Execute a query with known unimplemented function
         FakeRestRequest request = new FakeRestRequest.Builder(xContentRegistry()).withMethod(RestRequest.Method.GET)
             .withPath("/_m3ql")
-            .withParams(Map.of("query", "fetch service:api | derivative"))
+            .withParams(Map.of("query", "fetch service:api | logarithm"))
             .build();
         FakeRestChannel channel = new FakeRestChannel(request, true, 1);
 

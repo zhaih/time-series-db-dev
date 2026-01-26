@@ -53,11 +53,9 @@ public class Constants {
             "burnRateMultiplier",
             "changed",
             "constantLine",
-            "derivative",
             "divideScalar",
             "divideWhen",
             "histogramCDF",
-            "integral",
             "jainCP",
             "logarithm",
             "mapKey",
@@ -134,6 +132,11 @@ public class Constants {
         public static final String FALLBACK_SERIES = "fallbackSeries";
 
         /**
+         * derivative function name.
+         */
+        public static final String DERIVATIVE = "derivative";
+
+        /**
          * fetch function name.
          */
         public static final String FETCH = "fetch";
@@ -147,6 +150,11 @@ public class Constants {
          * histogramPercentile function name.
          */
         public static final String HISTOGRAM_PERCENTILE = "histogramPercentile";
+
+        /**
+         * integral function name.
+         */
+        public static final String INTEGRAL = "integral";
 
         /**
          * keepLastValue function name.

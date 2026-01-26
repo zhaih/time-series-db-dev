@@ -15,12 +15,14 @@ import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.AggregationPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.AliasByTagsPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.AliasPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.ExcludeByTagPlanNode;
+import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.DerivativePlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.FallbackSeriesConstantPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.TagSubPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.ValueFilterPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.FetchPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.HeadPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.HistogramPercentilePlanNode;
+import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.IntegralPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.IsNonNullPlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.KeepLastValuePlanNode;
 import org.opensearch.tsdb.lang.m3.m3ql.plan.nodes.M3PlanNode;
@@ -65,6 +67,8 @@ public class M3PlanNodeFactory {
                 return AliasPlanNode.of(functionNode);
             case Constants.Functions.ALIAS_BY_TAGS:
                 return AliasByTagsPlanNode.of(functionNode);
+            case Constants.Functions.DERIVATIVE:
+                return DerivativePlanNode.of(functionNode);
             case Constants.Functions.EXCLUDE_BY_TAG:
                 return ExcludeByTagPlanNode.of(functionNode);
             case Constants.Functions.TAG_SUB:
@@ -79,6 +83,8 @@ public class M3PlanNodeFactory {
                 return HeadPlanNode.of(functionNode);
             case Constants.Functions.HISTOGRAM_PERCENTILE:
                 return HistogramPercentilePlanNode.of(functionNode);
+            case Constants.Functions.INTEGRAL:
+                return IntegralPlanNode.of(functionNode);
             case Constants.Functions.IS_NON_NULL:
                 return IsNonNullPlanNode.of(functionNode);
             case Constants.Functions.KEEP_LAST_VALUE:
