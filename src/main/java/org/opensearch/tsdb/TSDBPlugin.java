@@ -44,6 +44,7 @@ import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptService;
 import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.fetch.FetchSubPhase;
 import org.opensearch.telemetry.metrics.MetricsRegistry;
 import org.opensearch.telemetry.tracing.Tracer;
 import org.opensearch.threadpool.ExecutorBuilder;
@@ -51,6 +52,8 @@ import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.tsdb.lang.m3.M3QLMetrics;
 import org.opensearch.tsdb.metrics.TSDBMetrics;
+import org.opensearch.tsdb.query.fetch.LabelsFetchBuilder;
+import org.opensearch.tsdb.query.fetch.LabelsFetchSubPhase;
 import org.opensearch.tsdb.query.search.CachedWildcardQueryBuilder;
 import org.opensearch.tsdb.query.search.TimeRangePruningQueryBuilder;
 import org.opensearch.tsdb.query.aggregator.InternalTimeSeries;
@@ -698,6 +701,16 @@ public class TSDBPlugin extends Plugin implements SearchPlugin, EnginePlugin, Ac
             ),
             new QuerySpec<>(CachedWildcardQueryBuilder.NAME, CachedWildcardQueryBuilder::new, CachedWildcardQueryBuilder::fromXContent)
         );
+    }
+
+    @Override
+    public List<FetchSubPhase> getFetchSubPhases(FetchPhaseConstructionContext context) {
+        return List.of(new LabelsFetchSubPhase());
+    }
+
+    @Override
+    public List<SearchExtSpec<?>> getSearchExts() {
+        return List.of(new SearchExtSpec<>(LabelsFetchSubPhase.NAME, LabelsFetchBuilder::new, LabelsFetchBuilder::fromXContent));
     }
 
     @Override

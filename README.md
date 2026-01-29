@@ -203,6 +203,40 @@ curl -X POST -H 'Content-Type: application/json' 'http://localhost:9200/my-index
 }' | jq
 ```
 
+### Fetch labels via _search API
+Use the `ext` section with `tsdb_labels` to fetch decoded labels from DocValues:
+```bash
+curl -X GET "localhost:9200/my-index/_search?pretty" -H 'Content-Type: application/json' -d '{
+  "ext": { "tsdb_labels": {} },
+  "query": { "term": { "labels": "method:POST" } },
+  "size": 10,
+  "_source": false
+}'
+```
+Response:
+```json
+{
+  "hits": {
+    "hits": [
+      {
+        "_index": "my-index",
+        "_score": 1.0,
+        "fields": {
+          "tsdb_labels": [
+            {
+              "__name__": "http_requests_total",
+              "handler": "/api/items",
+              "method": "POST",
+              "status": "200"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
 ## Aggregations
 
 ### AsPercentQuery with unfold_pipeline and coordinator_pipeline

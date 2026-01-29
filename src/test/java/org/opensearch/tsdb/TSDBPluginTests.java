@@ -30,7 +30,9 @@ import org.opensearch.plugins.IndexStorePlugin;
 import org.opensearch.plugins.SearchPlugin;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.search.aggregations.InternalAggregation;
+import org.opensearch.search.fetch.FetchSubPhase;
 import org.opensearch.test.DummyShardLock;
+import org.opensearch.tsdb.query.fetch.LabelsFetchSubPhase;
 import org.opensearch.test.IndexSettingsModule;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.tsdb.query.aggregator.TimeSeriesCoordinatorAggregationBuilder;
@@ -537,5 +539,23 @@ public class TSDBPluginTests extends OpenSearchTestCase {
 
     public void testImplementsIndexStorePlugin() {
         assertThat("Should implement IndexStorePlugin", plugin, instanceOf(IndexStorePlugin.class));
+    }
+
+    // ========== Fetch Sub-Phase Tests ==========
+
+    public void testGetFetchSubPhases() {
+        List<FetchSubPhase> fetchSubPhases = plugin.getFetchSubPhases(null);
+
+        assertNotNull("Fetch sub-phases list should not be null", fetchSubPhases);
+        assertThat("Should have 1 fetch sub-phase", fetchSubPhases, hasSize(1));
+        assertThat("Fetch sub-phase should be LabelsFetchSubPhase", fetchSubPhases.get(0), instanceOf(LabelsFetchSubPhase.class));
+    }
+
+    public void testGetSearchExts() {
+        List<SearchPlugin.SearchExtSpec<?>> searchExts = plugin.getSearchExts();
+
+        assertNotNull("Search exts list should not be null", searchExts);
+        assertThat("Should have 1 search ext", searchExts, hasSize(1));
+        assertThat("Search ext name should be tsdb_labels", searchExts.get(0).getName().getPreferredName(), equalTo("tsdb_labels"));
     }
 }
