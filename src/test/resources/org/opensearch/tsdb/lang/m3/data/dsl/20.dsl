@@ -250,7 +250,7 @@
   "track_total_hits" : -1,
   "aggregations" : {
     "0" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 1000000000,
           "max_timestamp" : 1001000000,
@@ -295,7 +295,7 @@
       }
     },
     "1" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 1000000000,
           "max_timestamp" : 1001000000,
@@ -340,7 +340,7 @@
       }
     },
     "3" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 1000000000,
           "max_timestamp" : 1001000000,
@@ -385,7 +385,7 @@
       }
     },
     "7" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 1000000000,
           "max_timestamp" : 1001000000,
@@ -430,7 +430,7 @@
       }
     },
     "8" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 1000000000,
           "max_timestamp" : 1001000000,
@@ -475,7 +475,7 @@
       }
     },
     "11" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 1000000000,
           "max_timestamp" : 1001000000,
@@ -520,7 +520,7 @@
       }
     },
     "12" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 1000000000,
           "max_timestamp" : 1001000000,

@@ -114,7 +114,7 @@
   "track_total_hits" : -1,
   "aggregations" : {
     "0" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 996400000,
           "max_timestamp" : 1001000000,
@@ -167,7 +167,7 @@
       }
     },
     "8" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 910000000,
           "max_timestamp" : 914600000,
@@ -220,7 +220,7 @@
       }
     },
     "14" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 823600000,
           "max_timestamp" : 828200000,

@@ -11,7 +11,6 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.PipelineAggregationBuilder;
-import org.opensearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.telemetry.metrics.Counter;
 import org.opensearch.telemetry.metrics.MetricsRegistry;
@@ -114,6 +113,7 @@ import org.opensearch.tsdb.lang.m3.m3ql.plan.visitor.M3PlanVisitor;
 import org.opensearch.tsdb.lang.m3.stage.ValueFilterStage;
 import org.opensearch.tsdb.metrics.TSDBMetrics;
 import org.opensearch.tsdb.metrics.TSDBMetricsConstants;
+import org.opensearch.tsdb.query.aggregator.TSDBFilterAggregationBuilder;
 import org.opensearch.tsdb.query.search.CachedWildcardQueryBuilder;
 import org.opensearch.tsdb.query.search.TimeRangePruningQueryBuilder;
 import org.opensearch.tsdb.query.aggregator.TimeSeriesCoordinatorAggregationBuilder;
@@ -1002,7 +1002,7 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
      */
     public static class ComponentHolder {
         private final int id;
-        private final List<FilterAggregationBuilder> filterAggregationBuilders;
+        private final List<TSDBFilterAggregationBuilder> filterAggregationBuilders;
         private final List<TimeSeriesCoordinatorAggregationBuilder> pipelineAggregationBuilders;
         private final Set<QueryBuilder> dnfQueries; // disjunctive normal form of fetch queries
         private TimeSeriesUnfoldAggregationBuilder unfoldAggregationBuilder;
@@ -1035,13 +1035,13 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
             for (ComponentHolder holder : holders) {
                 // Add an existing, or build a new FilterAggregationBuilder for each QueryComponentHolder
                 if (!holder.getFilterAggregationBuilders().isEmpty()) {
-                    for (FilterAggregationBuilder existing : holder.getFilterAggregationBuilders()) {
+                    for (TSDBFilterAggregationBuilder existing : holder.getFilterAggregationBuilders()) {
                         merged.addFilterAggregationBuilder(existing); // lift the existing FilterAggregationBuilder
                         merged.addQuery(existing.getFilter());
                     }
                 } else if (holder.getUnfoldAggregationBuilder() != null) {
                     // the unfold aggregation builder could be null as we may just refer to a cached unfold aggregation
-                    FilterAggregationBuilder filterAgg = new FilterAggregationBuilder(
+                    TSDBFilterAggregationBuilder filterAgg = new TSDBFilterAggregationBuilder(
                         String.valueOf(holder.getId()),
                         holder.getFullQuery()
                     );
@@ -1094,7 +1094,7 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
             return mergedQuery;
         }
 
-        private void addFilterAggregationBuilder(FilterAggregationBuilder filterAggregationBuilder) {
+        private void addFilterAggregationBuilder(TSDBFilterAggregationBuilder filterAggregationBuilder) {
             filterAggregationBuilders.add(filterAggregationBuilder);
         }
 
@@ -1102,7 +1102,7 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
             pipelineAggregationBuilders.add(pipelineAggregationBuilder);
         }
 
-        private List<FilterAggregationBuilder> getFilterAggregationBuilders() {
+        private List<TSDBFilterAggregationBuilder> getFilterAggregationBuilders() {
             return filterAggregationBuilders;
         }
 
@@ -1126,7 +1126,7 @@ public class SourceBuilderVisitor extends M3PlanVisitor<SourceBuilderVisitor.Com
             if (unfoldAggregationBuilder != null) {
                 searchSourceBuilder.aggregation(unfoldAggregationBuilder);
             }
-            for (FilterAggregationBuilder filterAgg : filterAggregationBuilders) {
+            for (TSDBFilterAggregationBuilder filterAgg : filterAggregationBuilders) {
                 searchSourceBuilder.aggregation(filterAgg);
             }
 

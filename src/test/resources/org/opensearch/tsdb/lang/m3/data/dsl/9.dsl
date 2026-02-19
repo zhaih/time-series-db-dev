@@ -148,7 +148,7 @@
   "track_total_hits" : -1,
   "aggregations" : {
     "0" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 1000000000,
           "max_timestamp" : 1001000000,
@@ -193,7 +193,7 @@
       }
     },
     "1" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 1000000000,
           "max_timestamp" : 1001000000,
@@ -238,7 +238,7 @@
       }
     },
     "3" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 1000000000,
           "max_timestamp" : 1001000000,
@@ -283,7 +283,7 @@
       }
     },
     "4" : {
-      "filter" : {
+      "tsdb_filter" : {
         "time_range_pruner" : {
           "min_timestamp" : 1000000000,
           "max_timestamp" : 1001000000,

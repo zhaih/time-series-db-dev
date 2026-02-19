@@ -10,8 +10,9 @@ package org.opensearch.tsdb;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.opensearch.search.aggregations.bucket.global.GlobalAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.global.InternalGlobal;
-import org.opensearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
-import org.opensearch.search.aggregations.bucket.filter.InternalFilter;
+import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.tsdb.query.aggregator.TSDBFilterAggregationBuilder;
+import org.opensearch.tsdb.query.aggregator.TSDBFilterAggregator;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.tsdb.core.chunk.Encoding;
 import org.opensearch.tsdb.lang.m3.stage.CopyStage;
@@ -54,7 +55,7 @@ import java.util.Map;
  *   <li><b>Coordinator Aggregator:</b> Must use a parent aggregation (e.g., {@code GlobalAggregationBuilder})
  *       because coordinators reference sibling aggregations by name. The parent provides the context
  *       for these references.</li>
- *   <li><b>Nested Aggregations:</b> Use parent aggregations (e.g., {@code FilterAggregationBuilder})
+ *   <li><b>Nested Aggregations:</b> Use parent aggregations (e.g., {@code TSDBFilterAggregationBuilder})
  *       to test path navigation with the ">" separator (e.g., "filter_agg>unfold_nested").</li>
  * </ul>
  */
@@ -829,7 +830,7 @@ public class TSAggregationPluginTests extends TimeSeriesAggregatorTestCase {
         GlobalAggregationBuilder globalAgg = new GlobalAggregationBuilder("global")
             // Filter aggregation containing an unfold aggregation
             .subAggregation(
-                new FilterAggregationBuilder("filter_agg", new MatchAllQueryBuilder()).subAggregation(
+                new TSDBFilterAggregationBuilder("filter_agg", new MatchAllQueryBuilder()).subAggregation(
                     new TimeSeriesUnfoldAggregationBuilder(
                         "unfold_nested",
                         List.of(new ScaleStage(2.0)), // Scale by 2
@@ -857,7 +858,7 @@ public class TSAggregationPluginTests extends TimeSeriesAggregatorTestCase {
             assertNotNull("Global result should not be null", result);
 
             // Verify the filter aggregation exists
-            InternalFilter filterResult = result.getAggregations().get("filter_agg");
+            TSDBFilterAggregator.InternalFilter filterResult = result.getAggregations().get("filter_agg");
             assertNotNull("Filter aggregation should exist", filterResult);
 
             // Verify the nested unfold aggregation exists within the filter
@@ -1402,7 +1403,7 @@ public class TSAggregationPluginTests extends TimeSeriesAggregatorTestCase {
             GlobalAggregationBuilder globalAgg = new GlobalAggregationBuilder("global")
                 // Create a filter aggregation but don't add the "nonexistent_unfold" sub-aggregation
                 .subAggregation(
-                    new FilterAggregationBuilder("filter_agg", new MatchAllQueryBuilder()).subAggregation(
+                    new TSDBFilterAggregationBuilder("filter_agg", new MatchAllQueryBuilder()).subAggregation(
                         new TimeSeriesUnfoldAggregationBuilder("unfold_nested", List.of(new ScaleStage(1.0)), 1000L, 2000L, 1000L)
                     )
                 )
@@ -1469,10 +1470,10 @@ public class TSAggregationPluginTests extends TimeSeriesAggregatorTestCase {
      */
     public void testCoordinatorWithNonTimeSeriesProviderAggregation() throws Exception {
         IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> {
-            // Create a FilterAggregation which doesn't implement TimeSeriesProvider
+            // Create a TSDBFilterAggregation which doesn't implement TimeSeriesProvider
             GlobalAggregationBuilder globalAgg = new GlobalAggregationBuilder("global")
                 // Add a filter aggregation (which doesn't implement TimeSeriesProvider)
-                .subAggregation(new FilterAggregationBuilder("filter_agg", new MatchAllQueryBuilder()))
+                .subAggregation(new TSDBFilterAggregationBuilder("filter_agg", new MatchAllQueryBuilder()))
                 .subAggregation(
                     new TimeSeriesCoordinatorAggregationBuilder(
                         "coordinator",
@@ -1687,6 +1688,64 @@ public class TSAggregationPluginTests extends TimeSeriesAggregatorTestCase {
             );
 
             assertSamplesEqual("MergeIterator with 3 chunks should scale correctly", expectedSamples, samples, SAMPLE_COMPARISON_DELTA);
+        });
+    }
+
+    // ========================== TSDBFilterAggregator Integration Tests ==========================
+
+    /**
+     * Test TSDBFilterAggregator with MatchAllQueryBuilder filter.
+     * Verifies that the filter aggregation passes all documents through and
+     * the nested unfold aggregation processes them correctly.
+     */
+    public void testTSDBFilterAggregatorMatchAll() throws Exception {
+        GlobalAggregationBuilder globalAgg = new GlobalAggregationBuilder("global").subAggregation(
+            new TSDBFilterAggregationBuilder("filter_match_all", new MatchAllQueryBuilder()).subAggregation(
+                new TimeSeriesUnfoldAggregationBuilder("unfold_inside_filter", List.of(new ScaleStage(1.0)), 1000L, 4000L, 1000L)
+            )
+        );
+
+        testCaseWithClosedChunkIndex(globalAgg, new MatchAllDocsQuery(), index -> {
+            createTimeSeriesDocument(index, "cpu", "instance", "server1", 1000L, 50.0, 2000L, 60.0, 3000L, 70.0);
+            createTimeSeriesDocument(index, "cpu", "instance", "server2", 1000L, 80.0, 2000L, 90.0);
+        }, (InternalGlobal result) -> {
+            assertNotNull("Global result should not be null", result);
+
+            TSDBFilterAggregator.InternalFilter filterResult = result.getAggregations().get("filter_match_all");
+            assertNotNull("Filter aggregation should exist", filterResult);
+            assertTrue("MatchAll filter should match documents", filterResult.getDocCount() > 0);
+
+            InternalTimeSeries unfoldResult = filterResult.getAggregations().get("unfold_inside_filter");
+            assertNotNull("Nested unfold aggregation should exist", unfoldResult);
+            assertFalse("Unfold should have time series data", unfoldResult.getTimeSeries().isEmpty());
+            assertEquals("Should have 2 time series (server1 and server2)", 2, unfoldResult.getTimeSeries().size());
+        });
+    }
+
+    /**
+     * Test TSDBFilterAggregator with a query that matches no documents.
+     * Verifies the filter correctly produces zero doc count and empty sub-aggregation results.
+     */
+    public void testTSDBFilterAggregatorNoMatch() throws Exception {
+        GlobalAggregationBuilder globalAgg = new GlobalAggregationBuilder("global").subAggregation(
+            new TSDBFilterAggregationBuilder("filter_no_match", new TermQueryBuilder("nonexistent_field", "nonexistent_value"))
+                .subAggregation(
+                    new TimeSeriesUnfoldAggregationBuilder("unfold_inside_filter", List.of(new ScaleStage(1.0)), 1000L, 4000L, 1000L)
+                )
+        );
+
+        testCaseWithClosedChunkIndex(globalAgg, new MatchAllDocsQuery(), index -> {
+            createTimeSeriesDocument(index, "cpu", "instance", "server1", 1000L, 50.0, 2000L, 60.0);
+        }, (InternalGlobal result) -> {
+            assertNotNull("Global result should not be null", result);
+
+            TSDBFilterAggregator.InternalFilter filterResult = result.getAggregations().get("filter_no_match");
+            assertNotNull("Filter aggregation should exist even with no matches", filterResult);
+            assertEquals("Filter should have 0 doc count when nothing matches", 0, filterResult.getDocCount());
+
+            InternalTimeSeries unfoldResult = filterResult.getAggregations().get("unfold_inside_filter");
+            assertNotNull("Nested unfold should exist even with no docs", unfoldResult);
+            assertTrue("Nested unfold should have no time series", unfoldResult.getTimeSeries().isEmpty());
         });
     }
 
