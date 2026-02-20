@@ -8,7 +8,6 @@
 package org.opensearch.tsdb.query.aggregator;
 
 import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.search.DocIdStream;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Bits;
 import org.opensearch.common.lucene.Lucene;
@@ -69,16 +68,6 @@ public class TSDBFilterAggregator extends BucketsAggregator implements SingleBuc
                 if (bits.get(doc)) {
                     collectBucket(sub, doc, bucket);
                 }
-            }
-
-            @Override
-            public void collect(DocIdStream stream, long owningBucketOrd) throws IOException {
-                super.collect(stream, owningBucketOrd);
-            }
-
-            @Override
-            public void collectRange(int min, int max) throws IOException {
-                super.collectRange(min, max);
             }
         };
     }
