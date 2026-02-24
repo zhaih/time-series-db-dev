@@ -90,14 +90,6 @@ public class TSDBFilterAggregator extends BucketsAggregator implements SingleBuc
         return new InternalFilter(name, 0, buildEmptySubAggregations(), metadata());
     }
 
-    @Override
-    public void collectDebugInfo(BiConsumer<String, Object> add) {
-        super.collectDebugInfo(add);
-        for (Aggregator aggregator : subAggregators) {
-            aggregator.collectDebugInfo(add);
-        }
-    }
-
     public static class InternalFilter extends InternalSingleBucketAggregation implements Filter {
         InternalFilter(String name, long docCount, InternalAggregations subAggregations, Map<String, Object> metadata) {
             super(name, docCount, subAggregations, metadata);
