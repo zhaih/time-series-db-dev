@@ -7,6 +7,8 @@
  */
 package org.opensearch.tsdb.query.aggregator;
 
+import org.junit.After;
+import org.junit.Before;
 import org.opensearch.Version;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -73,6 +75,16 @@ public class InternalTimeSeriesSerializationTests extends AbstractWireTestCase<I
         String name = (instance.getName() != null ? instance.getName() : "test") + "_mutated";
 
         return new InternalTimeSeries(name, instance.getTimeSeries(), instance.getMetadata(), instance.getReduceStage());
+    }
+
+    @Before
+    void setSerialVersion() {
+        InternalTimeSeries.serialFormatSetting = InternalTimeSeries.CURRENT_SERIAL_VERSION;
+    }
+
+    @After
+    void resetSerialVersion() {
+        InternalTimeSeries.serialFormatSetting = InternalTimeSeries.LEGACY_SERIAL_VERSION;
     }
 
     /**
@@ -221,7 +233,10 @@ public class InternalTimeSeriesSerializationTests extends AbstractWireTestCase<I
             // the test instance is randomly created, so loop it a bit more to realize the randomized options
             InternalTimeSeries original = createTestInstance();
             try (BytesStreamOutput out = new BytesStreamOutput()) {
-                original.legacyWriteTo(out);
+                int serialVersion = InternalTimeSeries.serialFormatSetting;
+                InternalTimeSeries.serialFormatSetting = InternalTimeSeries.LEGACY_SERIAL_VERSION;
+                original.writeTo(out);
+                InternalTimeSeries.serialFormatSetting = serialVersion;
 
                 try (StreamInput in = out.bytes().streamInput()) {
                     InternalTimeSeries deserialized = new InternalTimeSeries(in);

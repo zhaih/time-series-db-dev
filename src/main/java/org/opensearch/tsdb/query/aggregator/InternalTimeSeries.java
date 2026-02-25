@@ -60,8 +60,10 @@ public class InternalTimeSeries extends InternalAggregation implements TimeSerie
     private final UnaryPipelineStage reduceStage;
     private static final SampleMerger MERGE_HELPER = new SampleMerger(SampleMerger.DeduplicatePolicy.ANY_WINS);
 
-    private static final int LEGACY_SERIAL_VERSION = 0;
-    private static final int CURRENT_SERIAL_VERSION = 1;
+    public static final int LEGACY_SERIAL_VERSION = 0;
+    public static final int CURRENT_SERIAL_VERSION = 1;
+
+    public static volatile int serialFormatSetting = LEGACY_SERIAL_VERSION; // this will be synced with the cluster setting
 
     /**
      * Creates a new InternalTimeSeries aggregation result without a reduce stage.
@@ -143,6 +145,10 @@ public class InternalTimeSeries extends InternalAggregation implements TimeSerie
      */
     @Override
     public void doWriteTo(StreamOutput out) throws IOException {
+        if (serialFormatSetting == LEGACY_SERIAL_VERSION) {
+            legacyWriteTo(out);
+            return;
+        }
         out.writeVInt(-CURRENT_SERIAL_VERSION);
         out.writeVInt(timeSeries.size());
         for (TimeSeries series : timeSeries) {
@@ -172,10 +178,7 @@ public class InternalTimeSeries extends InternalAggregation implements TimeSerie
         }
     }
 
-    /** Only used for benchmark and testing the back compatibility */
-    public void legacyWriteTo(StreamOutput out) throws IOException {
-        out.writeString(name);
-        out.writeGenericValue(metadata);
+    private void legacyWriteTo(StreamOutput out) throws IOException {
         out.writeVInt(timeSeries.size());
         for (TimeSeries series : timeSeries) {
             out.writeInt(0); // hash - placeholder for now
