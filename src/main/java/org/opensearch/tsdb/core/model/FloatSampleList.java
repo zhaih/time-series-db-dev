@@ -7,8 +7,12 @@
  */
 package org.opensearch.tsdb.core.model;
 
+import org.apache.lucene.store.DataInput;
+import org.apache.lucene.store.DataOutput;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.RamUsageEstimator;
+import org.apache.lucene.util.packed.PackedInts;
+import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 
 import java.io.IOException;
@@ -28,8 +32,8 @@ public class FloatSampleList implements SampleList {
     /** Cached shallow size to avoid reflection at runtime. */
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(FloatSampleList.class);
 
-    private final double[] values;
-    private final long[] timestamps;
+    protected final double[] values;
+    protected final long[] timestamps;
     private final int size;
 
     public FloatSampleList(double[] values, long[] timestamps, int size) {
@@ -39,6 +43,42 @@ public class FloatSampleList implements SampleList {
         this.values = values;
         this.timestamps = timestamps;
         this.size = size;
+    }
+
+    /**
+     * Constructor for deserialization
+     */
+    public FloatSampleList(StreamInput in) throws IOException {
+        size = in.readVInt();
+        values = new double[size];
+        timestamps = new long[size];
+        int formatId = in.readVInt();
+        PackedInts.Format format = PackedInts.Format.byId(formatId);
+        int requiredBits = in.readVInt();
+        long gcd = in.readVLong();
+        timestamps[0] = in.readVLong();
+        PackedInts.ReaderIterator readerIterator = PackedInts.getReaderIteratorNoHeader(new DataInput() {
+            @Override
+            public byte readByte() throws IOException {
+                return in.readByte();
+            }
+
+            @Override
+            public void readBytes(byte[] b, int offset, int len) throws IOException {
+                in.readBytes(b, offset, len);
+            }
+
+            @Override
+            public void skipBytes(long numBytes) throws IOException {
+                in.skipNBytes(numBytes);
+            }
+        }, format, PackedInts.VERSION_CURRENT, size - 1, requiredBits, 1000000);
+        for (int i = 1; i < size; i++) {
+            timestamps[i] = timestamps[i - 1] + readerIterator.next() * gcd;
+        }
+        for (int i = 0; i < size; i++) {
+            values[i] = in.readDouble();
+        }
     }
 
     @Override
@@ -128,6 +168,74 @@ public class FloatSampleList implements SampleList {
             + ", size="
             + size
             + '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof SampleList otherList) {
+            return SampleList.super.equals(otherList);
+        }
+        return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     * <br>
+     * This implementation utilizes the fact that the timestamps are monotonically increasing,
+     * such that we can do a delta encoding. And also usually the steps are more than 10000 (10s) so
+     * it also extract the common factor using gcd algorithm.
+     * <br>
+     * Then it utilizes the lucene's {@link PackedInts} to encodes the timestamp array, and a naive
+     * writeDouble calls to encode the values array
+     */
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeVInt(size);
+        if (size == 0) {
+            return;
+        }
+        long maxStep = 0;
+        long gcd = 0;
+        long diff = 0;
+        for (int i = 1; i < size; i++) {
+            diff = timestamps[i] - timestamps[i - 1];
+            gcd = gcd(diff, gcd);
+            maxStep = Math.max(maxStep, diff);
+        }
+        maxStep = maxStep / gcd;
+        int requiredBits = PackedInts.bitsRequired(maxStep);
+        PackedInts.FormatAndBits formatAndBits = PackedInts.fastestFormatAndBits(size - 1, requiredBits, 0);
+        out.writeVInt(formatAndBits.format().getId()); // write encoding format
+        out.writeVInt(formatAndBits.bitsPerValue()); // write encoding bits per value
+        out.writeVLong(gcd); // write gcd
+        out.writeVLong(timestamps[0]); // write the first timestamp
+        PackedInts.Writer writer = PackedInts.getWriterNoHeader(new DataOutput() {
+            @Override
+            public void writeByte(byte b) throws IOException {
+                out.writeByte(b);
+            }
+
+            @Override
+            public void writeBytes(byte[] b, int offset, int length) throws IOException {
+                out.writeBytes(b, offset, length);
+            }
+        }, formatAndBits.format(), size - 1, formatAndBits.bitsPerValue(), 1000000);
+        for (int i = 1; i < size; i++) {
+            writer.add((timestamps[i] - timestamps[i - 1]) / gcd); // write deltas
+        }
+        writer.finish();
+        for (int i = 0; i < size; i++) {
+            out.writeDouble(values[i]);
+        }
+    }
+
+    private static long gcd(long a, long b) {
+        while (b != 0) {
+            long temp = b;
+            b = a % b;
+            a = temp;
+        }
+        return a;
     }
 
     private static final class MutableFloatSample implements Sample {
@@ -340,5 +448,24 @@ public class FloatSampleList implements SampleList {
                 }
             };
         }
+
+        @Override
+        public void writeTo(StreamOutput out) throws IOException {
+            out.writeLong(minTimestamp);
+            out.writeLong(maxTimestamp);
+            out.writeLong(step);
+            out.writeDouble(value);
+        }
+    }
+
+    /**
+     * read the stream input and deserialize the constant list
+     */
+    public static ConstantList readConstantList(StreamInput in) throws IOException {
+        long minTimestamp = in.readLong();
+        long maxTimestamp = in.readLong();
+        long step = in.readLong();
+        double value = in.readDouble();
+        return new ConstantList(minTimestamp, maxTimestamp, step, value);
     }
 }

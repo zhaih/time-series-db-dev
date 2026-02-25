@@ -9,12 +9,17 @@ package org.opensearch.tsdb.core.model;
 
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.RamUsageEstimator;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Customized list representation of samples, this interface tries to promote usage of raw values and timestamps
@@ -22,7 +27,7 @@ import java.util.List;
  *
  * <p>Extends {@link Accountable} to provide memory usage tracking compatible with OpenSearch/Lucene patterns.</p>
  */
-public interface SampleList extends Iterable<Sample>, Accountable {
+public interface SampleList extends Iterable<Sample>, Accountable, Writeable {
 
     /** Bytes per object reference (4 with compressed OOPs, 8 without). */
     int REFERENCE_SIZE = RamUsageEstimator.NUM_BYTES_OBJECT_REF;
@@ -43,6 +48,45 @@ public interface SampleList extends Iterable<Sample>, Accountable {
      * SumCountSample has extra fields). Consider a more accurate per-type estimation in the future.
      */
     long ESTIMATED_SAMPLE_SIZE = 16;
+
+    /** resolve ordinal of the implementations for serialization usage */
+    Map<Class<? extends SampleList>, Integer> SERIALIZATION_ORD = Map.of(
+        ListWrapper.class,
+        0,
+        FloatSampleList.class,
+        1,
+        FloatSampleList.ConstantList.class,
+        2
+    );
+
+    /** read from the stream input and deserialize to corresponding class according to the ordinal */
+    static SampleList readFrom(StreamInput in) throws IOException {
+        int ord = in.readVInt();
+        return switch (ord) {
+            case 0 -> new ListWrapper(in);
+            case 1 -> new FloatSampleList(in);
+            case 2 -> FloatSampleList.readConstantList(in);
+            default -> throw new IllegalStateException("Unknown SampleList ordinal: " + ord);
+        };
+    }
+
+    /**
+     * Write the provided sampleList to the stream output
+     */
+    static void writeTo(SampleList sampleList, StreamOutput out) throws IOException {
+        assert SERIALIZATION_ORD.containsKey(sampleList.getClass()) : "Please add new implementation to the serialization ord map!";
+        out.writeVInt(SERIALIZATION_ORD.get(sampleList.getClass()));
+        sampleList.writeTo(out);
+    }
+
+    /**
+     * {@inheritDoc}
+     * <br>
+     * In most cases calling {@link #writeTo(SampleList, StreamOutput)} instead might be a better option since it
+     * writes the ordinal to distinguish the known implementations.
+     */
+    @Override
+    void writeTo(StreamOutput out) throws IOException;
 
     /**
      * Get the size of this list, should be a fast operation unless specifically noticed
@@ -164,6 +208,16 @@ public interface SampleList extends Iterable<Sample>, Accountable {
                 + ESTIMATED_SAMPLE_SIZE));
         }
 
+        private ListWrapper(StreamInput in) throws IOException {
+            int size = in.readVInt();
+            inner = new ArrayList<>(size);
+            for (int i = 0; i < size; i++) {
+                inner.add(Sample.readFrom(in));
+            }
+            estimatedBytes = SHALLOW_SIZE + ARRAYLIST_OVERHEAD + ARRAY_HEADER_SIZE + (inner.size() * (REFERENCE_SIZE
+                + ESTIMATED_SAMPLE_SIZE));
+        }
+
         @Override
         public int size() {
             return inner.size();
@@ -231,6 +285,14 @@ public interface SampleList extends Iterable<Sample>, Accountable {
         @Override
         public long ramBytesUsed() {
             return estimatedBytes;  // O(1) - pre-computed at construction
+        }
+
+        @Override
+        public void writeTo(StreamOutput out) throws IOException {
+            out.writeVInt(size());
+            for (Sample sample : this) {
+                sample.writeTo(out);
+            }
         }
     }
 

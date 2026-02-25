@@ -60,6 +60,9 @@ public class InternalTimeSeries extends InternalAggregation implements TimeSerie
     private final UnaryPipelineStage reduceStage;
     private static final SampleMerger MERGE_HELPER = new SampleMerger(SampleMerger.DeduplicatePolicy.ANY_WINS);
 
+    private static final int LEGACY_SERIAL_VERSION = 0;
+    private static final int CURRENT_SERIAL_VERSION = 1;
+
     /**
      * Creates a new InternalTimeSeries aggregation result without a reduce stage.
      *
@@ -95,9 +98,13 @@ public class InternalTimeSeries extends InternalAggregation implements TimeSerie
         super(in);
         // Read time series
         int timeSeriesCount = in.readVInt();
+        int serialVersion = resolveSerialVersion(timeSeriesCount);
+        if (serialVersion != LEGACY_SERIAL_VERSION) {
+            timeSeriesCount = in.readVInt();
+        }
         this.timeSeries = new ArrayList<>(timeSeriesCount);
         for (int i = 0; i < timeSeriesCount; i++) {
-            this.timeSeries.add(readTimeSeries(in));
+            this.timeSeries.add(readTimeSeries(in, serialVersion));
         }
 
         // Read the reduce stage information
@@ -110,6 +117,24 @@ public class InternalTimeSeries extends InternalAggregation implements TimeSerie
         }
     }
 
+    private static int resolveSerialVersion(int timeSeriesCount) {
+        if (timeSeriesCount >= 0) {
+            return LEGACY_SERIAL_VERSION;
+        }
+        if (timeSeriesCount != -CURRENT_SERIAL_VERSION) {
+            throw new IllegalStateException(
+                "Unknown serial version: "
+                    + (-timeSeriesCount)
+                    + ". Only "
+                    + LEGACY_SERIAL_VERSION
+                    + "and "
+                    + CURRENT_SERIAL_VERSION
+                    + " is supported."
+            );
+        }
+        return CURRENT_SERIAL_VERSION;
+    }
+
     /**
      * Writes the InternalTimeSeries data to a stream for serialization.
      *
@@ -118,6 +143,38 @@ public class InternalTimeSeries extends InternalAggregation implements TimeSerie
      */
     @Override
     public void doWriteTo(StreamOutput out) throws IOException {
+        out.writeVInt(-CURRENT_SERIAL_VERSION);
+        out.writeVInt(timeSeries.size());
+        for (TimeSeries series : timeSeries) {
+            out.writeInt(0); // hash - placeholder for now
+            SampleList.writeTo(series.getSamples(), out);
+
+            // Write labels - convert to map for serialization
+            Map<String, String> labelsMap = series.getLabels() != null ? series.getLabels().toMapView() : new HashMap<>();
+            out.writeMap(labelsMap, StreamOutput::writeString, StreamOutput::writeString);
+
+            // Write alias
+            out.writeOptionalString(series.getAlias());
+
+            // Write TimeSeries metadata
+            out.writeLong(series.getMinTimestamp());
+            out.writeLong(series.getMaxTimestamp());
+            out.writeLong(series.getStep());
+        }
+
+        // Write the reduce stage information
+        if (reduceStage != null) {
+            out.writeBoolean(true);
+            out.writeString(reduceStage.getName());
+            reduceStage.writeTo(out);
+        } else {
+            out.writeBoolean(false);
+        }
+    }
+
+    public void legacyWriteTo(StreamOutput out) throws IOException {
+        out.writeString(name);
+        out.writeGenericValue(metadata);
         out.writeVInt(timeSeries.size());
         for (TimeSeries series : timeSeries) {
             out.writeInt(0); // hash - placeholder for now
@@ -386,7 +443,27 @@ public class InternalTimeSeries extends InternalAggregation implements TimeSerie
      * @return the deserialized TimeSeries object
      * @throws IOException if an I/O error occurs during reading
      */
-    private static TimeSeries readTimeSeries(StreamInput in) throws IOException {
+    private static TimeSeries readTimeSeries(StreamInput in, int serialVersion) throws IOException {
+        if (serialVersion == LEGACY_SERIAL_VERSION) {
+            return readTimeSeriesLegacy(in);
+        }
+        int hash = in.readInt();
+        SampleList samples = SampleList.readFrom(in);
+
+        Map<String, String> labelsMap = in.readMap(StreamInput::readString, StreamInput::readString);
+        Labels labels = labelsMap.isEmpty() ? ByteLabels.emptyLabels() : ByteLabels.fromMap(labelsMap);
+
+        String alias = in.readOptionalString();
+
+        // Read TimeSeries metadata
+        long minTimestamp = in.readLong();
+        long maxTimestamp = in.readLong();
+        long step = in.readLong();
+
+        return new TimeSeries(samples, labels, minTimestamp, maxTimestamp, step, alias);
+    }
+
+    private static TimeSeries readTimeSeriesLegacy(StreamInput in) throws IOException {
         int hash = in.readInt();
         int sampleCount = in.readVInt();
         List<Sample> samples = new ArrayList<>(sampleCount);

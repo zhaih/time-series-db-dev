@@ -8,8 +8,11 @@
 package org.opensearch.tsdb.core.model;
 
 import org.apache.lucene.util.RamUsageEstimator;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.test.OpenSearchTestCase;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -101,5 +104,35 @@ public class SampleListTests extends OpenSearchTestCase {
 
         // Reference size should match RamUsageEstimator (4 with compressed OOPs, 8 without)
         assertEquals("REFERENCE_SIZE should use RamUsageEstimator", RamUsageEstimator.NUM_BYTES_OBJECT_REF, SampleList.REFERENCE_SIZE);
+    }
+
+    public void testSerialization() throws IOException {
+        List<Sample> samples = List.of(
+            new FloatSample(1000L, 1.0),
+            new SumCountSample(3000L, 4.5, 1),
+            new MultiValueSample(4000L, List.of(1.2, 3.4)),
+            new MinMaxSample(5000L, 3.6, 7.8)
+        );
+        SampleList original = SampleList.fromList(samples);
+        assertSerializedEquals(original);
+
+        FloatSampleList.Builder builder = new FloatSampleList.Builder();
+        for (int i = 0; i < 100; i++) {
+            builder.add(i * 2, i * 2);
+        }
+        SampleList floatList = builder.build();
+        assertSerializedEquals(floatList);
+
+        assertSerializedEquals(new FloatSampleList.ConstantList(0, 10000, 2000, 1.5));
+    }
+
+    private static void assertSerializedEquals(SampleList original) throws IOException {
+        try (BytesStreamOutput out = new BytesStreamOutput()) {
+            SampleList.writeTo(original, out);
+            try (StreamInput in = out.bytes().streamInput()) {
+                SampleList deserialized = SampleList.readFrom(in);
+                assertEquals(original, deserialized);
+            }
+        }
     }
 }

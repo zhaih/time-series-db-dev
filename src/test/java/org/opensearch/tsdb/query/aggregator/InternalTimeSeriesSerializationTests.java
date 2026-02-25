@@ -215,6 +215,25 @@ public class InternalTimeSeriesSerializationTests extends AbstractWireTestCase<I
         }
     }
 
+    public void testBackCompatibility() throws IOException {
+        InternalTimeSeries original = createTestInstance();
+        try (BytesStreamOutput out = new BytesStreamOutput()) {
+            original.legacyWriteTo(out);
+
+            try (StreamInput in = out.bytes().streamInput()) {
+                InternalTimeSeries deserialized = new InternalTimeSeries(in);
+
+                // Assert
+                assertEquals(original.getName(), deserialized.getName());
+                assertEquals(original.getMetadata(), deserialized.getMetadata());
+                assertEquals(original.getTimeSeries().size(), deserialized.getTimeSeries().size());
+                for (int i = 0; i < deserialized.getTimeSeries().size(); i++) {
+                    assertEquals(original.getTimeSeries().get(i), deserialized.getTimeSeries().get(i));
+                }
+            }
+        }
+    }
+
     // ========== Helper Methods ==========
 
     private Map<String, Object> createRandomMetadata() {
