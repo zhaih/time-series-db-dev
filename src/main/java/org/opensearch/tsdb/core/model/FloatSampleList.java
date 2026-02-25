@@ -52,10 +52,17 @@ public class FloatSampleList implements SampleList {
         size = in.readVInt();
         values = new double[size];
         timestamps = new long[size];
+        if (size == 0) {
+            return;
+        }
+        if (size == 1) {
+            timestamps[0] = in.readVLong();
+            values[0] = in.readDouble();
+            return;
+        }
         int formatId = in.readVInt();
         PackedInts.Format format = PackedInts.Format.byId(formatId);
         int requiredBits = in.readVInt();
-        long gcd = in.readVLong();
         timestamps[0] = in.readVLong();
         PackedInts.ReaderIterator readerIterator = PackedInts.getReaderIteratorNoHeader(new DataInput() {
             @Override
@@ -74,7 +81,7 @@ public class FloatSampleList implements SampleList {
             }
         }, format, PackedInts.VERSION_CURRENT, size - 1, requiredBits, 1000000);
         for (int i = 1; i < size; i++) {
-            timestamps[i] = timestamps[i - 1] + readerIterator.next() * gcd;
+            timestamps[i] = timestamps[i - 1] + readerIterator.next();
         }
         for (int i = 0; i < size; i++) {
             values[i] = in.readDouble();
@@ -194,20 +201,19 @@ public class FloatSampleList implements SampleList {
         if (size == 0) {
             return;
         }
-        long maxStep = 0;
-        long gcd = 0;
-        long diff = 0;
-        for (int i = 1; i < size; i++) {
-            diff = timestamps[i] - timestamps[i - 1];
-            gcd = gcd(diff, gcd);
-            maxStep = Math.max(maxStep, diff);
+        if (size == 1) {
+            out.writeVLong(timestamps[0]);
+            out.writeDouble(values[0]);
+            return;
         }
-        maxStep = maxStep / gcd;
+        long maxStep = 0;
+        for (int i = 1; i < size; i++) {
+            maxStep = Math.max(maxStep, timestamps[i] - timestamps[i - 1]);
+        }
         int requiredBits = PackedInts.bitsRequired(maxStep);
         PackedInts.FormatAndBits formatAndBits = PackedInts.fastestFormatAndBits(size - 1, requiredBits, 0);
         out.writeVInt(formatAndBits.format().getId()); // write encoding format
         out.writeVInt(formatAndBits.bitsPerValue()); // write encoding bits per value
-        out.writeVLong(gcd); // write gcd
         out.writeVLong(timestamps[0]); // write the first timestamp
         PackedInts.Writer writer = PackedInts.getWriterNoHeader(new DataOutput() {
             @Override
@@ -221,21 +227,12 @@ public class FloatSampleList implements SampleList {
             }
         }, formatAndBits.format(), size - 1, formatAndBits.bitsPerValue(), 1000000);
         for (int i = 1; i < size; i++) {
-            writer.add((timestamps[i] - timestamps[i - 1]) / gcd); // write deltas
+            writer.add(timestamps[i] - timestamps[i - 1]); // write deltas
         }
         writer.finish();
         for (int i = 0; i < size; i++) {
             out.writeDouble(values[i]);
         }
-    }
-
-    private static long gcd(long a, long b) {
-        while (b != 0) {
-            long temp = b;
-            b = a % b;
-            a = temp;
-        }
-        return a;
     }
 
     private static final class MutableFloatSample implements Sample {
