@@ -172,6 +172,7 @@ public class InternalTimeSeries extends InternalAggregation implements TimeSerie
         }
     }
 
+    /** Only used for benchmark and testing the back compatibility */
     public void legacyWriteTo(StreamOutput out) throws IOException {
         out.writeString(name);
         out.writeGenericValue(metadata);

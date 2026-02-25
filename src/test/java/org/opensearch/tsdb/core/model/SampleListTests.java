@@ -126,6 +126,14 @@ public class SampleListTests extends OpenSearchTestCase {
         assertSerializedEquals(new FloatSampleList.ConstantList(0, 10000, 2000, 1.5));
     }
 
+    public void testSerializationEdgeCases() throws IOException {
+        FloatSampleList list = new FloatSampleList(new double[0], new long[0], 0);
+        assertSerializedEquals(list);
+
+        FloatSampleList list2 = new FloatSampleList(new double[] { 1.0 }, new long[] { 0 }, 1);
+        assertSerializedEquals(list2);
+    }
+
     private static void assertSerializedEquals(SampleList original) throws IOException {
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             SampleList.writeTo(original, out);
