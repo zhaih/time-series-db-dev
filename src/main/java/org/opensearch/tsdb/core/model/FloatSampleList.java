@@ -189,8 +189,7 @@ public class FloatSampleList implements SampleList {
      * {@inheritDoc}
      * <br>
      * This implementation utilizes the fact that the timestamps are monotonically increasing,
-     * such that we can do a delta encoding. And also usually the steps are more than 10000 (10s) so
-     * it also extract the common factor using gcd algorithm.
+     * such that we can do a delta encoding.
      * <br>
      * Then it utilizes the lucene's {@link PackedInts} to encodes the timestamp array, and a naive
      * writeDouble calls to encode the values array
