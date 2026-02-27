@@ -666,6 +666,8 @@ public class TSDBPlugin extends Plugin implements SearchPlugin, EnginePlugin, Ac
         // Initialize ingestion lag metrics enabled settings
         this.coordinatorMetricsEnabled = TSDB_INGESTION_LAG_COORDINATOR_METRICS_ENABLED.get(environment.settings());
         this.searchableMetricsEnabled = TSDB_INGESTION_LAG_SEARCHABLE_METRICS_ENABLED.get(environment.settings());
+
+        // serial format setting initialization
         InternalTimeSeries.serialFormatSetting = TSDB_ENGINE_INTERNAL_TIME_SERIES_FORMAT.get(environment.settings());
 
         // Register settings update consumers for dynamic updates
@@ -680,7 +682,7 @@ public class TSDBPlugin extends Plugin implements SearchPlugin, EnginePlugin, Ac
 
         clusterService.getClusterSettings().addSettingsUpdateConsumer(TSDB_ENGINE_INTERNAL_TIME_SERIES_FORMAT, version -> {
             if (version != InternalTimeSeries.CURRENT_SERIAL_VERSION && version != InternalTimeSeries.LEGACY_SERIAL_VERSION) {
-                // don't change the current setting if an unknow version is set
+                // don't change the current setting if an unknown version is set
                 logger.warn(
                     "Unknown InternalTimeSeries version has been set, keep current serial version {}",
                     InternalTimeSeries.serialFormatSetting

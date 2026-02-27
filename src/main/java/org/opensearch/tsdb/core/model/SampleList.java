@@ -49,24 +49,32 @@ public interface SampleList extends Iterable<Sample>, Accountable, Writeable {
      */
     long ESTIMATED_SAMPLE_SIZE = 16;
 
+    enum Implementations {
+        ListWrapper,
+        FloatSampleList,
+        FloatConstantList,
+    }
+
     /** resolve ordinal of the implementations for serialization usage */
     Map<Class<? extends SampleList>, Integer> SERIALIZATION_ORD = Map.of(
         ListWrapper.class,
-        0,
+        Implementations.ListWrapper.ordinal(),
         FloatSampleList.class,
-        1,
+        Implementations.FloatSampleList.ordinal(),
         FloatSampleList.ConstantList.class,
-        2
+        Implementations.FloatConstantList.ordinal()
     );
 
     /** read from the stream input and deserialize to corresponding class according to the ordinal */
     static SampleList readFrom(StreamInput in) throws IOException {
         int ord = in.readVInt();
-        return switch (ord) {
-            case 0 -> new ListWrapper(in);
-            case 1 -> new FloatSampleList(in);
-            case 2 -> FloatSampleList.readConstantList(in);
-            default -> throw new IllegalStateException("Unknown SampleList ordinal: " + ord);
+        if (ord < 0 || ord >= Implementations.values().length) {
+            throw new IllegalStateException("Unknown SampleList implementation ordinal: " + ord);
+        }
+        return switch (Implementations.values()[ord]) {
+            case ListWrapper -> new ListWrapper(in);
+            case FloatSampleList -> new FloatSampleList(in);
+            case FloatConstantList -> FloatSampleList.readConstantList(in);
         };
     }
 

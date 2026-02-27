@@ -32,6 +32,9 @@ public class FloatSampleList implements SampleList {
     /** Cached shallow size to avoid reflection at runtime. */
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(FloatSampleList.class);
 
+    private static final int EXTRA_MEM_USAGE_DESERIAL = 1_000; // extra 1K to speed up deserialization
+    private static final int EXTRA_MEM_USAGE_SERIAL = 10_000; // extra 10K to speed up serial
+
     protected final double[] values;
     protected final long[] timestamps;
     private final int size;
@@ -60,6 +63,7 @@ public class FloatSampleList implements SampleList {
             values[0] = in.readDouble();
             return;
         }
+        int version = in.readVInt();
         int formatId = in.readVInt();
         PackedInts.Format format = PackedInts.Format.byId(formatId);
         int requiredBits = in.readVInt();
@@ -79,7 +83,7 @@ public class FloatSampleList implements SampleList {
             public void skipBytes(long numBytes) throws IOException {
                 in.skipNBytes(numBytes);
             }
-        }, format, PackedInts.VERSION_CURRENT, size - 1, requiredBits, 1000000);
+        }, format, version, size - 1, requiredBits, EXTRA_MEM_USAGE_DESERIAL);
         for (int i = 1; i < size; i++) {
             timestamps[i] = timestamps[i - 1] + readerIterator.next();
         }
@@ -210,7 +214,9 @@ public class FloatSampleList implements SampleList {
             maxStep = Math.max(maxStep, timestamps[i] - timestamps[i - 1]);
         }
         int requiredBits = PackedInts.bitsRequired(maxStep);
-        PackedInts.FormatAndBits formatAndBits = PackedInts.fastestFormatAndBits(size - 1, requiredBits, 0);
+        // PackedInts.COMPACT because we always do sequential access when we read this back
+        PackedInts.FormatAndBits formatAndBits = PackedInts.fastestFormatAndBits(size - 1, requiredBits, PackedInts.COMPACT);
+        out.writeVInt(PackedInts.VERSION_CURRENT); // write current version
         out.writeVInt(formatAndBits.format().getId()); // write encoding format
         out.writeVInt(formatAndBits.bitsPerValue()); // write encoding bits per value
         out.writeVLong(timestamps[0]); // write the first timestamp
@@ -224,7 +230,7 @@ public class FloatSampleList implements SampleList {
             public void writeBytes(byte[] b, int offset, int length) throws IOException {
                 out.writeBytes(b, offset, length);
             }
-        }, formatAndBits.format(), size - 1, formatAndBits.bitsPerValue(), 1000000);
+        }, formatAndBits.format(), size - 1, formatAndBits.bitsPerValue(), EXTRA_MEM_USAGE_SERIAL);
         for (int i = 1; i < size; i++) {
             writer.add(timestamps[i] - timestamps[i - 1]); // write deltas
         }
