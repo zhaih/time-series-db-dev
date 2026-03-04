@@ -51,8 +51,21 @@ public class BitStream {
         // Shift value to align with most significant bits
         value <<= (64 - numBits);
 
-        // Write whole bytes first
-        while (numBits >= 8 && bitPos == 0) {
+        if (bitPos != 0) {
+            // fill the gap left by last write
+            int toWrite = Math.min(8 - bitPos, numBits);
+            // value >>> (64 - toWrite) --- shift bits to write to the right
+            // << (8 - bitPos - toWrite) --- shift to left to align with the bitPos
+            buffer[bytePos] |= (byte) ((value >>> (64 - toWrite)) << (8 - bitPos - toWrite));
+            numBits -= toWrite;
+            advanceBitPos(toWrite);
+            value <<= toWrite;
+        }
+
+        assert bitPos == 0 || numBits == 0;
+
+        // Write whole bytes
+        while (numBits >= 8) {
             byte byteValue = (byte) (value >>> 56);
             buffer[bytePos] = byteValue;
             bytePos++;
@@ -60,18 +73,19 @@ public class BitStream {
             numBits -= 8;
         }
 
-        // Write remaining bits individually
-        while (numBits > 0) {
-            if ((value >>> 63) != 0) {
-                buffer[bytePos] |= (1 << (7 - bitPos));
-            }
-            bitPos++;
-            if (bitPos == 8) {
-                bitPos = 0;
-                bytePos++;
-            }
-            value <<= 1;
-            numBits--;
+        // write rest bits to the last full byte
+        assert bitPos == 0 || numBits == 0;
+        if (numBits > 0) {
+            buffer[bytePos] = (byte) (value >>> 56);
+            advanceBitPos(numBits);
+        }
+    }
+
+    private void advanceBitPos(int numBits) {
+        bitPos += numBits;
+        if (bitPos >= 8) {
+            bitPos = bitPos % 8;
+            bytePos += 1;
         }
     }
 
