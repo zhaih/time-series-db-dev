@@ -33,7 +33,7 @@ import org.opensearch.tsdb.core.utils.Time;
  * <p>
  * Note: This implementation enforces that only one index is compacted at a time.
  * The {@link #plan(List)} method returns a single index (or empty list), and
- * {@link #compact(List, ClosedChunkIndex)} requires exactly one source index.
+ * {@link #compact(Plan, ClosedChunkIndex)} requires exactly one source index in the plan.
  */
 public class ForceMergeCompaction implements Compaction {
     private static final Logger logger = LogManager.getLogger(ForceMergeCompaction.class);
@@ -109,9 +109,9 @@ public class ForceMergeCompaction implements Compaction {
      * @return single-element list containing the first eligible index to force merge, or empty list
      */
     @Override
-    public List<ClosedChunkIndex> plan(List<ClosedChunkIndex> indexes) {
+    public Plan plan(List<ClosedChunkIndex> indexes) {
         if (indexes.isEmpty()) {
-            return Collections.emptyList();
+            return new Plan(Collections.emptyList(), this);
         }
 
         // Calculate safe cutoff for force merge considering OOO writes
@@ -125,7 +125,7 @@ public class ForceMergeCompaction implements Compaction {
         // 1. Old enough to not receive OOO writes (maxTime <= safeCutoffMaxTime)
         // 2. Have at least minSegmentCount segments (force merge is only beneficial for multi-segment indexes)
         // Return the first eligible index (oldest)
-        return indexes.stream().filter(index -> {
+        List<ClosedChunkIndex> result = indexes.stream().filter(index -> {
             try {
                 long indexMaxTime = Time.toTimestamp(index.getMaxTime(), resolution);
                 int segmentCount = index.getSegmentCount();
@@ -135,6 +135,7 @@ public class ForceMergeCompaction implements Compaction {
                 return false;
             }
         }).findFirst().map(List::of).orElse(Collections.emptyList());
+        return new Plan(result, this);
     }
 
     /**
@@ -146,17 +147,18 @@ public class ForceMergeCompaction implements Compaction {
      * <p>
      * Requirements:
      * <ul>
-     *   <li>The sources list must contain exactly ONE index</li>
+     *   <li>The plan's index list must contain exactly ONE index</li>
      *   <li>The dest parameter should be null (ignored for in-place optimization)</li>
      * </ul>
      *
-     * @param sources list containing exactly one index to force merge
-     * @param dest    destination index (must be null for in-place optimization)
-     * @throws IllegalArgumentException if sources list doesn't contain exactly one element
+     * @param plan plan whose index list contains exactly one index to force merge
+     * @param dest destination index (must be null for in-place optimization)
+     * @throws IllegalArgumentException if the plan's index list doesn't contain exactly one element
      * @throws IOException if there's an error during the force merge operation
      */
     @Override
-    public void compact(List<ClosedChunkIndex> sources, ClosedChunkIndex dest) throws IOException {
+    public void compact(Plan plan, ClosedChunkIndex dest) throws IOException {
+        List<ClosedChunkIndex> sources = plan.getIndexes();
         if (sources.size() != 1) {
             throw new IllegalArgumentException("ForceMergeCompaction requires exactly one source index, but got " + sources.size());
         }
