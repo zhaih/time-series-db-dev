@@ -18,6 +18,17 @@ public class BitReader {
     private int bytePos;
     private int bitPos; // 0–7
 
+    // masking the byte bits starting from index
+    private static final long[] BITMASK_RIGHT = new long[] {
+        0b11111111,
+        0b01111111,
+        0b00111111,
+        0b00011111,
+        0b00001111,
+        0b00000111,
+        0b00000011,
+        0b00000001 };
+
     /**
      * Constructs a new BitReader for reading from the given byte array.
      * @param bytes the byte array to read from
@@ -39,12 +50,16 @@ public class BitReader {
         }
 
         int bit = (buffer[bytePos] >> (7 - bitPos)) & 1;
-        bitPos++;
-        if (bitPos == 8) {
-            bitPos = 0;
-            bytePos++;
-        }
+        advanceBitPos(1);
         return bit;
+    }
+
+    private void advanceBitPos(int numBits) {
+        bitPos += numBits;
+        if (bitPos >= 8) {
+            bitPos = bitPos % 8;
+            bytePos += 1;
+        }
     }
 
     /**
@@ -57,10 +72,36 @@ public class BitReader {
         if (numBits > 64) {
             throw new IllegalArgumentException("Cannot read more than 64 bits");
         }
+        if (numBits < 0) {
+            throw new IllegalArgumentException("Cannot read minus num bits");
+        }
 
         long value = 0;
-        for (int i = 0; i < numBits; i++) {
-            value = (value << 1) | readBit();
+
+        // read the rest bits from the last partial byte
+        if (bitPos != 0) {
+            int toRead = Math.min(8 - bitPos, numBits);
+            // (Byte.toUnsignedLong(buffer[bytePos]) & BITMASK_RIGHT[bitPos]) --- only take bits after bitPos
+            // >>> (8 - toRead - bitPos) --- align to the right
+            long v = (Byte.toUnsignedLong(buffer[bytePos]) & BITMASK_RIGHT[bitPos]) >>> (8 - toRead - bitPos);
+            value |= v;
+            advanceBitPos(toRead);
+            numBits -= toRead;
+        }
+        assert bitPos == 0 || numBits == 0;
+        // read whole byte
+        while (numBits >= 8) {
+            value = (value << 8) | Byte.toUnsignedLong(buffer[bytePos]);
+            bytePos += 1;
+            numBits -= 8;
+        }
+
+        assert bitPos == 0 || numBits == 0;
+        // read the rest bits
+        if (numBits > 0) {
+            // (Byte.toUnsignedLong(buffer[bytePos]) >>> (8 - numBits) --- align to the right
+            value = (value << numBits) | (Byte.toUnsignedLong(buffer[bytePos]) >>> (8 - numBits));
+            advanceBitPos(numBits);
         }
         return value;
     }

@@ -11,6 +11,24 @@ import org.opensearch.test.OpenSearchTestCase;
 
 public class BitStreamTests extends OpenSearchTestCase {
 
+    public void testReadWriteExtensively() {
+        int size = 1000;
+        long[] expect = new long[size];
+        for (int i = 0; i < size; i++) {
+            expect[i] = randomLong();
+        }
+        BitStream stream = new BitStream();
+        for (long n : expect) {
+            stream.writeBits(n, Math.max(1, 64 - Long.numberOfLeadingZeros(n)));
+        }
+
+        BitReader reader = new BitReader(stream.toByteArray());
+        for (long n : expect) {
+            long out = reader.readBits(Math.max(1, 64 - Long.numberOfLeadingZeros(n)));
+            assertEquals(n, out);
+        }
+    }
+
     public void testWriteAndReadBits() {
         BitStream stream = new BitStream();
 
